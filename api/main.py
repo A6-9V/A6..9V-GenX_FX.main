@@ -33,6 +33,7 @@ async def root():
         "message": "GenX-FX Trading Platform API",
         "version": "1.0.0",
         "status": "running",
+        "docs": "/docs",
         "github": "Mouy-leng",
         "repository": "https://github.com/Mouy-leng/GenX_FX.git",
     }
@@ -99,6 +100,10 @@ async def get_predictions():
         "timestamp": datetime.now().isoformat(),
     }
 
+def get_db_connection():
+    db_path = os.environ.get("DB_PATH", "genxdb_fx.db")
+    return sqlite3.connect(db_path)
+
 @app.get("/trading-pairs")
 async def get_trading_pairs():
     """
@@ -110,7 +115,7 @@ async def get_trading_pairs():
         dict: A dictionary containing a list of trading pairs or an error message.
     """
     try:
-        conn = sqlite3.connect("genxdb_fx.db")
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT symbol, base_currency, quote_currency FROM trading_pairs WHERE is_active = 1"
@@ -142,7 +147,7 @@ async def get_users():
         dict: A dictionary containing a list of users or an error message.
     """
     try:
-        conn = sqlite3.connect("genxdb_fx.db")
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT username, email, is_active FROM users")
         users = cursor.fetchall()
