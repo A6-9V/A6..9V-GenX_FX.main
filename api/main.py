@@ -83,21 +83,58 @@ async def api_health_check():
         "timestamp": datetime.now().isoformat(),
     }
 
-@app.get("/api/v1/predictions")
-async def get_predictions():
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import sqlite3
+import os
+from datetime import datetime
+import re
+
+def is_safe_string(input_string):
+    """
+    A simple function to check for potentially malicious characters.
+    """
+    # Reject strings with common SQL injection or XSS characters
+    if re.search(r"[;\"'<>]", input_string):
+        return False
+    return True
+
+from ai_models.ensemble_predictor import EnsemblePredictor
+import pandas as pd
+
+# Initialize the predictor
+predictor = EnsemblePredictor()
+
+@app.post("/api/v1/predictions")
+async def get_predictions(request: Request):
     """
     Endpoint to get trading predictions.
 
-    Currently returns a placeholder response.
+    Accepts a POST request with historical price data and returns a prediction.
 
     Returns:
-        dict: A dictionary containing an empty list of predictions.
+        dict: A dictionary containing the prediction.
     """
-    return {
-        "predictions": [],
-        "status": "ready",
-        "timestamp": datetime.now().isoformat(),
-    }
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # Basic validation
+    if "historical_data" not in data or not isinstance(data["historical_data"], list):
+        raise HTTPException(status_code=400, detail="Missing or invalid 'historical_data' field.")
+
+    try:
+        df = pd.DataFrame(data["historical_data"])
+        # Basic data validation
+        required_columns = ['open', 'high', 'low', 'close', 'volume']
+        if not all(col in df.columns for col in required_columns):
+            raise HTTPException(status_code=400, detail="Missing required columns in historical data.")
+
+        prediction = predictor.predict(df)
+        return prediction
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 @app.get("/trading-pairs")
 async def get_trading_pairs():
