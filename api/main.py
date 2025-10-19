@@ -3,11 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import os
 from datetime import datetime
+from pydantic import BaseModel
 app = FastAPI(
     title="GenX-FX Trading Platform API",
     description="Trading platform with ML-powered predictions",
     version="1.0.0"
 )
+
+class PaymentMethod(BaseModel):
+    cardholderName: str
+    cardNumber: str
+    expiryDate: str
+    cvc: str
 
 # Add CORS middleware
 app.add_middleware(
@@ -17,6 +24,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup():
+    conn = sqlite3.connect("genxdb_fx.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS payment_methods (
+            id INTEGER PRIMARY KEY,
+            cardholder_name TEXT,
+            masked_card_number TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 @app.get("/")
 async def root():
@@ -167,6 +188,31 @@ async def get_mt5_info():
     """
     return {"login": "279023502", "server": "Exness-MT5Trial8", "status": "configured"}
 
+@app.post("/api/v1/billing")
+async def add_payment_method(payment_method: PaymentMethod):
+    """
+    Adds a new payment method to the database.
+
+    Returns:
+        dict: A dictionary with a success message.
+    """
+    try:
+        masked_card_number = f"**** **** **** {payment_method.cardNumber[-4:]}"
+        conn = sqlite3.connect("genxdb_fx.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO payment_methods (cardholder_name, masked_card_number) VALUES (?, ?)",
+            (
+                payment_method.cardholderName,
+                masked_card_number,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Payment method added successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
