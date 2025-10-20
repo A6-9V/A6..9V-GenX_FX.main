@@ -87,3 +87,4 @@ safety>=2.3.0,<3.0.0
 
 # Web server support for health checks
 # No additional web framework needed, using built-in http.server
+httpx

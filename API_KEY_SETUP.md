@@ -52,6 +52,10 @@ FXCM_API_KEY=your-fxcm-api-key-here
 FXCM_ACCESS_TOKEN=your-fxcm-access-token-here
 FXCM_ACCOUNT_ID=your-fxcm-account-id-here
 FXCM_ENVIRONMENT=demo  # or "real"
+FXCM_USERNAME=
+FXCM_PASSWORD=
+FXCM_CONNECTION_TYPE=Demo
+FXCM_URL=www.fxcorporate.com/Hosts.jsp
 
 # ========================================
 # NEWS & MARKET DATA APIs
@@ -126,6 +130,14 @@ SENTIMENT_THRESHOLD=0.6
 NODE_ENV=development  # or "production"
 DOMAIN=your-domain.com
 EMAIL=your-email@domain.com
+
+# ========================================
+# DOCKER REGISTRY CREDENTIALS
+# ========================================
+DOCKER_USERNAME=
+DOCKER_PASSWORD=
+DOCKER_IMAGE=keamouyleng/genx_docker
+DOCKER_TAG=latest
 ```
 
 ## 🔑 **API Key Sources & Setup Instructions**
