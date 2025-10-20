@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
+from .sortino_ratio_analyzer import SortinoRatioAnalyzer
 
 # Try to import pandas and numpy, but provide fallbacks if not available
 try:
@@ -95,6 +96,7 @@ class PositionSizer:
         self.max_risk_per_trade = max_risk_per_trade
         self.max_portfolio_risk = max_portfolio_risk
         self.risk_level = risk_level
+        self.sortino_analyzer = SortinoRatioAnalyzer()
         
         # Risk multipliers based on risk level
         self.risk_multipliers = {
@@ -483,6 +485,33 @@ class PositionSizer:
             print(f"Warning: Error calculating risk metrics: {e}")
             return {}
     
+    def get_sortino_ratio_assessment(self) -> Dict[str, Any]:
+        """
+        Calculates and assesses the Sortino Ratio for the trading history.
+
+        Returns:
+            Dict[str, Any]: A dictionary with the Sortino Ratio and a qualitative assessment.
+        """
+        if not self.position_history:
+            return {"sortino_ratio": 0, "assessment": "Not enough data"}
+
+        returns = [p['profit_loss'] for p in self.position_history if p['profit_loss'] is not None]
+        if len(returns) < 2:
+            return {"sortino_ratio": 0, "assessment": "Not enough data"}
+
+        sortino_ratio = self.sortino_analyzer.calculate_sortino_ratio(returns)
+
+        if sortino_ratio > 2.0:
+            assessment = "Excellent"
+        elif sortino_ratio > 1.0:
+            assessment = "Good"
+        elif sortino_ratio > 0.0:
+            assessment = "Acceptable"
+        else:
+            assessment = "Poor"
+
+        return {"sortino_ratio": sortino_ratio, "assessment": assessment}
+
     def set_risk_level(self, risk_level: RiskLevel):
         """
         Updates the risk level for the position sizer.
