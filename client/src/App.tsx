@@ -10,16 +10,14 @@ function App() {
   const [apiHealth, setApiHealth] = useState<any>(null)
 
   useEffect(() => {
-    const API = 'http://localhost:8081'
-
     // Test Node.js server health
-    fetch(`${API}/health`)
+    fetch(`/health`)
       .then(res => res.json())
       .then(data => setHealth(data))
       .catch(err => console.error('Node.js server error:', err))
 
     // Test Python API health  
-    fetch(`${API}/api/v1/health`)
+    fetch(`/api/v1/health`)
       .then(res => res.json())
       .then(data => setApiHealth(data))
       .catch(err => console.error('Python API error:', err))

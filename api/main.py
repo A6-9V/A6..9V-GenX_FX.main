@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import sqlite3
 import os
@@ -19,25 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    """
-    Root endpoint for the API.
+# Serve the frontend
+app.mount("/", StaticFiles(directory="client/dist", html=True), name="static")
 
-    Provides basic information about the API, including its name, version,
-    status, and repository URL.
-
-    Returns:
-        dict: A dictionary containing API information.
-    """
-    return {
-        "message": "GenX-FX Trading Platform API",
-        "version": "1.0.0",
-        "status": "active",
-        "docs": "/docs",
-        "github": "Mouy-leng",
-        "repository": "https://github.com/Mouy-leng/GenX_FX.git",
-    }
 
 @app.get("/health")
 async def health_check():
