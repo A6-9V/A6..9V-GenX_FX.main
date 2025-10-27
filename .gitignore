@@ -202,6 +202,7 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .yarn-integrity
+*.tsbuildinfo
 
 # AWS
 .aws/
