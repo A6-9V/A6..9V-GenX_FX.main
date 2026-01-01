@@ -2,25 +2,33 @@ import pytest
 import asyncio
 from unittest.mock import Mock, patch
 import os
+import sqlite3
+import time
+from api import main as api_main
 
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app
+    from api.main import app, get_db
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
 
 if FASTAPI_AVAILABLE:
+    from fastapi.testclient import TestClient
     # Set test environment variables
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["DATABASE_URL"] = "postgresql://test:test@localhost/test"
     os.environ["MONGODB_URL"] = "mongodb://localhost:27017/test"
     os.environ["REDIS_URL"] = "redis://localhost:6379"
-    
-    client = TestClient(app)
 else:
     client = None
+
+@pytest.fixture
+def client():
+    """Create a test client for the FastAPI app."""
+    return TestClient(app)
+
 
 @pytest.fixture
 def mock_auth():
@@ -29,13 +37,13 @@ def mock_auth():
         mock_user.return_value = {"username": "testuser"}
         yield mock_user
 
-def test_root_endpoint():
+def test_root_endpoint(client):
     """Test root endpoint"""
     response = client.get("/")
     assert response.status_code == 200
     assert "message" in response.json()
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     """Test health endpoint"""
     response = client.get("/health")
     assert response.status_code == 200
@@ -130,3 +138,105 @@ def test_config_loading():
     assert isinstance(config, dict)
     assert "database_url" in config
     assert "symbols" in config
+
+def test_get_trading_pairs(client):
+    """Test the /trading-pairs endpoint"""
+
+    # Mock database connection
+    def get_test_db():
+        try:
+            db = sqlite3.connect(":memory:", check_same_thread=False)
+            db.row_factory = sqlite3.Row
+            cursor = db.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE trading_pairs (
+                    symbol TEXT,
+                    base_currency TEXT,
+                    quote_currency TEXT,
+                    is_active INTEGER
+                )
+            """
+            )
+            cursor.execute(
+                "INSERT INTO trading_pairs VALUES ('BTCUSD', 'BTC', 'USD', 1)"
+            )
+            db.commit()
+            yield db
+        finally:
+            db.close()
+
+    # Override the dependency with the test database
+    app.dependency_overrides[get_db] = get_test_db
+
+    response = client.get("/trading-pairs")
+    assert response.status_code == 200
+    data = response.json()
+    assert "trading_pairs" in data
+    assert len(data["trading_pairs"]) == 1
+    assert data["trading_pairs"][0]["symbol"] == "BTCUSD"
+
+
+def test_get_trading_pairs_caching(client):
+    """Test the caching behavior of the /trading-pairs endpoint"""
+
+    # Manually reset cache state before the test run
+    api_main._trading_pairs_cache = None
+    api_main._trading_pairs_cache_timestamp = None
+
+    # Mock database connection with a cursor that can be spied on
+    class MockCursor:
+        def __init__(self):
+            self.execute_count = 0
+
+        def execute(self, *args, **kwargs):
+            self.execute_count += 1
+
+        def fetchall(self):
+            # This is what the real cursor's fetchall would return
+            # after a successful execute.
+            if self.execute_count > 0:
+                return [
+                    {
+                        "symbol": "BTCUSD",
+                        "base_currency": "BTC",
+                        "quote_currency": "USD",
+                    }
+                ]
+            return []
+
+    class MockConnection:
+        def __init__(self):
+            self.cursor_instance = MockCursor()
+
+        def cursor(self):
+            return self.cursor_instance
+
+        def close(self):
+            pass
+
+    mock_db = MockConnection()
+
+    def get_mock_db():
+        yield mock_db
+
+    # Override the dependency
+    app.dependency_overrides[get_db] = get_mock_db
+
+    # --- First call - should hit the database ---
+    response1 = client.get("/trading-pairs")
+    assert response1.status_code == 200
+    assert mock_db.cursor_instance.execute_count == 1
+
+    # --- Second call - should be cached ---
+    response2 = client.get("/trading-pairs")
+    assert response2.status_code == 200
+    assert mock_db.cursor_instance.execute_count == 1  # Should not have incremented
+
+    # --- Wait for cache to expire ---
+    # To test expiration, we would need to manipulate the CACHE_DURATION
+    # or mock `datetime.now()`, which is more complex. For this test,
+    # we'll just verify the immediate caching behavior.
+
+    # --- Clear the override ---
+    app.dependency_overrides.clear()
