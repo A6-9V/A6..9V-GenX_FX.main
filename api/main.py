@@ -198,20 +198,42 @@ async def get_mt5_info():
     """
     return {"login": "279023502", "server": "Exness-MT5Trial8", "status": "configured"}
 
+import json
+import time
+
+# --- Cache for monitoring data ---
+# We use a simple in-memory cache to avoid reading the metrics file on every
+# request, which can be inefficient. The cache is invalidated after a set TTL.
+_cache = {"metrics": None, "last_updated": 0}
+CACHE_TTL_SECONDS = 10  # Time-to-live for the cache in seconds
+
+
 @app.get("/api/v1/monitor")
 async def get_monitoring_data():
     """
     Retrieves the latest system metrics from the monitoring service.
 
-    Reads the metrics from the 'system_metrics.json' file.
+    This endpoint uses a cache to avoid excessive file I/O. It reads the
+    metrics from the 'system_metrics.json' file only if the cache is stale.
 
     Returns:
         dict: A dictionary containing the latest system metrics, or an
               error message if the metrics are not available.
     """
+    now = time.time()
+    # --- Check if the cache is still valid ---
+    if _cache["metrics"] and (now - _cache["last_updated"]) < CACHE_TTL_SECONDS:
+        return _cache["metrics"]
+
     try:
+        # --- Cache is stale, read from file ---
         with open("system_metrics.json", "r") as f:
             metrics = json.load(f)
+
+        # --- Update cache ---
+        _cache["metrics"] = metrics
+        _cache["last_updated"] = now
+
         return metrics
     except FileNotFoundError:
         return {"error": "Monitoring data not available yet."}
