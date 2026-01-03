@@ -11,6 +11,13 @@ services:
       - .env
     volumes:
       - .:/app
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
 
   discord_bot:
     build:
