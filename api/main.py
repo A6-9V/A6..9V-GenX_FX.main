@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import sqlite3
 import os
+import json
+import time
+import aiofiles
 from datetime import datetime
 
 app = FastAPI(
@@ -198,9 +201,6 @@ async def get_mt5_info():
     """
     return {"login": "279023502", "server": "Exness-MT5Trial8", "status": "configured"}
 
-import json
-import time
-
 # --- Cache for monitoring data ---
 # We use a simple in-memory cache to avoid reading the metrics file on every
 # request, which can be inefficient. The cache is invalidated after a set TTL.
@@ -227,8 +227,9 @@ async def get_monitoring_data():
 
     try:
         # --- Cache is stale, read from file ---
-        with open("system_metrics.json", "r") as f:
-            metrics = json.load(f)
+        async with aiofiles.open("system_metrics.json", mode="r") as f:
+            content = await f.read()
+            metrics = json.loads(content)
 
         # --- Update cache ---
         _cache["metrics"] = metrics
