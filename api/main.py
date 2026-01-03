@@ -1,15 +1,29 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import sqlite3
 import os
 from datetime import datetime
+import redis
+import json
 
 app = FastAPI(
     title="GenX-FX Trading Platform API",
     description="Trading platform with ML-powered predictions",
     version="1.0.0"
 )
+
+# --------------------------------------------------------------------------
+# Redis Connection
+# --------------------------------------------------------------------------
+# Connect to a local Redis instance. In a production environment, this would
+# be configured with environment variables.
+# --------------------------------------------------------------------------
+redis_host = os.environ.get("REDIS_HOST", "localhost")
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_db = int(os.environ.get("REDIS_DB", 0))
+redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -132,32 +146,49 @@ async def get_predictions(request: dict):
 async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
     """
     Retrieves a list of active trading pairs from the database.
-
-    Connects to the SQLite database and fetches all pairs marked as active.
-
-    Returns:
-        dict: A dictionary containing a list of trading pairs or an error message.
+    This endpoint uses a Redis cache to reduce database queries.
     """
+    # ⚡ Bolt: Use Redis for caching to improve performance and ensure
+    # process safety in a multi-worker environment.
     try:
-        # --- Use the DB connection from the dependency ---
+        cached_pairs = redis_client.get('trading_pairs')
+        if cached_pairs:
+            return {"trading_pairs": json.loads(cached_pairs)}
+
+        # --- On cache miss, query the database ---
         cursor = db.cursor()
         cursor.execute(
             "SELECT symbol, base_currency, quote_currency FROM trading_pairs WHERE is_active = 1"
         )
         pairs = cursor.fetchall()
 
-        return {
-            "trading_pairs": [
-                {
-                    "symbol": pair["symbol"],
-                    "base_currency": pair["base_currency"],
-                    "quote_currency": pair["quote_currency"],
-                }
-                for pair in pairs
-            ]
-        }
-    except Exception as e:
-        return {"error": str(e)}
+        trading_pairs = [
+            {
+                "symbol": pair["symbol"],
+                "base_currency": pair["base_currency"],
+                "quote_currency": pair["quote_currency"],
+            }
+            for pair in pairs
+        ]
+
+        # --- Populate the cache with a 1-hour TTL ---
+        redis_client.setex('trading_pairs', 3600, json.dumps(trading_pairs))
+
+        return {"trading_pairs": trading_pairs}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not retrieve trading pairs.")
+
+@app.get("/clear-cache")
+async def clear_trading_pairs_cache():
+    """
+    Clears the trading_pairs cache from Redis.
+    """
+    try:
+        redis_client.delete('trading_pairs')
+        return {"status": "cache cleared"}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not clear cache.")
+
 
 @app.get("/users")
 async def get_users(db: sqlite3.Connection = Depends(get_db)):
