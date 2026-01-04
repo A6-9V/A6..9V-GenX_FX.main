@@ -84,6 +84,8 @@ safety>=2.3.0,<3.0.0
 # Notification Support (Optional)
 # python-telegram-bot>=20.0
 # slack-sdk>=3.21.0
+pywhatkit>=5.4
+webdriver-manager>=4.0.1
 
 # Web server support for health checks
 # No additional web framework needed, using built-in http.server
