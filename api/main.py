@@ -6,6 +6,8 @@ import os
 from datetime import datetime
 import time
 import json
+import redis
+import logging
 
 app = FastAPI(
     title="GenX-FX Trading Platform API",
@@ -22,13 +24,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Performance Optimization: In-Memory Cache for Monitoring Endpoint ---
+# --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
 # To avoid frequent and slow disk I/O on the monitoring endpoint, we use a
-# simple in-memory cache. The cache stores the contents of system_metrics.json
-# for a short duration, reducing latency and system load.
-_monitor_cache = None
-_monitor_cache_timestamp = 0
-CACHE_DURATION_SECONDS = 1  # Cache metrics for 1 second
+# Redis cache. This ensures that the cache is shared across all worker
+# processes, which is not the case with a simple in-memory global variable.
+# It also provides more robust caching with a configurable expiration time.
+#
+# The Redis connection details are retrieved from environment variables,
+# with sensible defaults for local development.
+# --------------------------------------------------------------------------
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
+
+# --- Set up basic logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+try:
+    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_connect_timeout=1)
+    redis_client.ping()
+    logging.info("Successfully connected to Redis.")
+except redis.exceptions.ConnectionError as e:
+    logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
+    redis_client = None
 
 
 # --------------------------------------------------------------------------
@@ -213,30 +231,33 @@ async def get_mt5_info():
 async def get_monitoring_data():
     """
     Retrieves the latest system metrics from the monitoring service.
-
-    This endpoint is optimized with an in-memory cache to reduce disk I/O
+    This endpoint is optimized with a Redis cache to reduce disk I/O
     and improve response time. It serves a cached version of the metrics if
-    the cache is less than CACHE_DURATION_SECONDS old.
-
+    available, otherwise it reads from the file and updates the cache.
     Returns:
         dict: A dictionary containing the latest system metrics, or an
               error message if the metrics are not available.
     """
-    global _monitor_cache, _monitor_cache_timestamp
+    # --- Performance: Use Redis cache if available ---
+    if redis_client:
+        try:
+            cached_metrics = redis_client.get("system_metrics")
+            if cached_metrics:
+                return json.loads(cached_metrics)
+        except redis.exceptions.ConnectionError as e:
+            logging.error(f"Redis connection error: {e}. Reading from file instead.")
 
-    # --- Check if the cache is still valid ---
-    current_time = time.time()
-    if _monitor_cache and (current_time - _monitor_cache_timestamp < CACHE_DURATION_SECONDS):
-        return _monitor_cache
-
-    # --- If cache is invalid, read from disk and update cache ---
+    # --- If cache is empty or Redis is unavailable, read from disk ---
     try:
         with open("system_metrics.json", "r") as f:
             metrics = json.load(f)
 
-        # --- Update cache and timestamp ---
-        _monitor_cache = metrics
-        _monitor_cache_timestamp = current_time
+        # --- Update Redis cache if available ---
+        if redis_client:
+            try:
+                redis_client.setex("system_metrics", CACHE_DURATION_SECONDS, json.dumps(metrics))
+            except redis.exceptions.ConnectionError as e:
+                logging.error(f"Could not write to Redis cache: {e}.")
 
         return metrics
     except FileNotFoundError:
