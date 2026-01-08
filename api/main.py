@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 import sqlite3
 import os
 from datetime import datetime
@@ -47,6 +47,23 @@ try:
 except redis.exceptions.ConnectionError as e:
     logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
     redis_client = None
+
+# --- Performance Optimization: In-Memory Cache for HTML Dashboard ---
+# To avoid reading the monitoring dashboard file from disk on every request,
+# we cache it in memory on application startup. This reduces disk I/O and
+# improves the response time of the /monitor endpoint. The HTMLResponse
+# class is used to serve the content directly from the cached variable.
+# --------------------------------------------------------------------------
+try:
+    with open("monitoring_dashboard.html", "r") as f:
+        MONITORING_DASHBOARD_HTML = f.read()
+    logging.info("Successfully cached monitoring_dashboard.html in memory.")
+except FileNotFoundError:
+    logging.error("monitoring_dashboard.html not found. The /monitor endpoint will be unavailable.")
+    MONITORING_DASHBOARD_HTML = "<h1>Error: Monitoring dashboard not found.</h1>"
+except Exception as e:
+    logging.error(f"An error occurred while caching the dashboard: {e}")
+    MONITORING_DASHBOARD_HTML = "<h1>Error: Could not load monitoring dashboard.</h1>"
 
 
 # --------------------------------------------------------------------------
@@ -265,15 +282,18 @@ async def get_monitoring_data():
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/monitor")
+@app.get("/monitor", response_class=HTMLResponse)
 async def serve_monitoring_dashboard():
     """
-    Serves the monitoring dashboard HTML file.
+    Serves the monitoring dashboard HTML file from an in-memory cache.
+
+    This endpoint is optimized to serve the dashboard without reading from
+    disk on every request, which improves performance.
 
     Returns:
-        FileResponse: The HTML file for the monitoring dashboard.
+        HTMLResponse: The HTML content of the monitoring dashboard.
     """
-    return FileResponse("monitoring_dashboard.html")
+    return HTMLResponse(content=MONITORING_DASHBOARD_HTML)
 
 if __name__ == "__main__":
     import uvicorn
