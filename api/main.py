@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 import sqlite3
 import os
 from datetime import datetime
@@ -48,6 +48,32 @@ except redis.exceptions.ConnectionError as e:
     logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
     redis_client = None
 
+
+# --------------------------------------------------------------------------
+# Performance Optimization: In-Memory Cache for Static HTML
+# --------------------------------------------------------------------------
+# To avoid reading the same static HTML file from disk on every request,
+# we cache its content in a global variable on application startup. This
+# reduces disk I/O and improves the response time for the monitoring dashboard.
+# --------------------------------------------------------------------------
+MONITORING_DASHBOARD_CACHE = None
+
+@app.on_event("startup")
+def cache_monitoring_dashboard():
+    """
+    Loads the monitoring dashboard HTML into an in-memory cache at startup.
+    """
+    global MONITORING_DASHBOARD_CACHE
+    try:
+        with open("monitoring_dashboard.html", "r") as f:
+            MONITORING_DASHBOARD_CACHE = f.read()
+        logging.info("Successfully cached monitoring_dashboard.html.")
+    except FileNotFoundError:
+        logging.error("monitoring_dashboard.html not found. The /monitor endpoint will be disabled.")
+        MONITORING_DASHBOARD_CACHE = "<h1>Error: Monitoring dashboard not found.</h1>"
+    except Exception as e:
+        logging.error(f"An error occurred while caching the dashboard: {e}")
+        MONITORING_DASHBOARD_CACHE = "<h1>Error: Could not load monitoring dashboard.</h1>"
 
 # --------------------------------------------------------------------------
 # Dependency Injection for Database Connection
@@ -268,12 +294,15 @@ async def get_monitoring_data():
 @app.get("/monitor")
 async def serve_monitoring_dashboard():
     """
-    Serves the monitoring dashboard HTML file.
+    Serves the monitoring dashboard HTML file from an in-memory cache.
+
+    This endpoint is optimized to serve the dashboard from a global variable,
+    reducing disk I/O and improving performance.
 
     Returns:
-        FileResponse: The HTML file for the monitoring dashboard.
+        HTMLResponse: The HTML content of the monitoring dashboard.
     """
-    return FileResponse("monitoring_dashboard.html")
+    return HTMLResponse(content=MONITORING_DASHBOARD_CACHE)
 
 if __name__ == "__main__":
     import uvicorn
