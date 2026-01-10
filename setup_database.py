@@ -173,6 +173,23 @@ def create_tables(cursor):
         except Exception as e:
             logger.warning(f"⚠️  Table creation warning (might already exist): {e}")
 
+    # --- Performance Optimization: Add Indexes ---
+    # Add indexes on frequently queried columns to improve performance.
+    # The 'is_active' column is used in WHERE clauses, so an index will
+    # significantly speed up filtering operations.
+    # -----------------------------------------------
+    indexes_sql = [
+        "CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active)",
+        "CREATE INDEX IF NOT EXISTS idx_trading_pairs_is_active ON trading_pairs(is_active)",
+    ]
+
+    for i, sql in enumerate(indexes_sql, 1):
+        try:
+            cursor.execute(sql)
+            logger.info(f"✅ Created index {i}/{len(indexes_sql)}")
+        except Exception as e:
+            logger.warning(f"⚠️  Index creation warning: {e}")
+
 def insert_initial_data(cursor):
     """
     Inserts initial data into the database, such as a default user and
