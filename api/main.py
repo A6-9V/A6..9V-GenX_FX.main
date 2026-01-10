@@ -214,20 +214,67 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/users")
+@app.get("/users/paginated")
+async def get_paginated_users(db: sqlite3.Connection = Depends(get_db), offset: int = 0, limit: int = 10):
+    """
+    Retrieves a paginated list of users from the database, including the total
+    count for building pagination UI.
+
+    Args:
+        db (sqlite3.Connection): The database connection from dependency injection.
+        offset (int): The starting index from which to retrieve users.
+        limit (int): The maximum number of users to retrieve.
+
+    Returns:
+        dict: A dictionary containing the list of users for the current page,
+              and the total number of users.
+    """
+    try:
+        # --- Get the paginated list of users ---
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT username, email, is_active FROM users LIMIT ? OFFSET ?", (limit, offset)
+        )
+        users = cursor.fetchall()
+
+        # --- Get the total number of users ---
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+
+        return {
+            "users": [
+                {
+                    "username": user["username"],
+                    "email": user["email"],
+                    "is_active": bool(user["is_active"])
+                }
+                for user in users
+            ],
+            "total": total_users
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/users", deprecated=True)
 async def get_users(db: sqlite3.Connection = Depends(get_db)):
     """
     Retrieves a list of users from the database.
 
-    Connects to the SQLite database and fetches user information.
+    **Note:** This endpoint is deprecated and will be removed in a future version.
+    Please use the `/users/paginated` endpoint instead, which offers better
+    performance and scalability. This endpoint is limited to returning a
+    maximum of 100 users.
 
     Returns:
         dict: A dictionary containing a list of users or an error message.
     """
     try:
-        # --- Use the DB connection from the dependency ---
+        # --- Bolt: Deprecate and add a safety limit ---
+        # The original endpoint is a performance risk. We are limiting it to
+        # 100 results to prevent accidental overload and marking it as
+        # deprecated to guide users to the new, paginated endpoint.
         cursor = db.cursor()
-        cursor.execute("SELECT username, email, is_active FROM users")
+        cursor.execute("SELECT username, email, is_active FROM users LIMIT 100")
         users = cursor.fetchall()
 
         return {
