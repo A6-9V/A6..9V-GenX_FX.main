@@ -9,8 +9,10 @@ import SystemTestResults from './components/SystemTestResults'
 function App() {
   const [health, setHealth] = useState<any>(null)
   const [apiHealth, setApiHealth] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true;
     const API = 'http://localhost:8081';
 
     /**
@@ -23,29 +25,42 @@ function App() {
      * Estimated impact: Reduces load time by up to 50% (depending on network latency).
      */
     const fetchHealthData = async () => {
-      const results = await Promise.allSettled([
-        fetch(`${API}/health`),
-        fetch(`${API}/api/v1/health`)
-      ]);
+      // Only set loading if mounted (though typically true here)
+      if (mounted) setIsLoading(true);
 
-      // Handle Node.js server health response
-      if (results[0].status === 'fulfilled') {
-        const healthData = await results[0].value.json();
-        setHealth(healthData);
-      } else {
-        console.error('Node.js server error:', results[0].reason);
-      }
+      try {
+        const results = await Promise.allSettled([
+          fetch(`${API}/health`),
+          fetch(`${API}/api/v1/health`)
+        ]);
 
-      // Handle Python API health response
-      if (results[1].status === 'fulfilled') {
-        const apiHealthData = await results[1].value.json();
-        setApiHealth(apiHealthData);
-      } else {
-        console.error('Python API error:', results[1].reason);
+        if (!mounted) return;
+
+        // Handle Node.js server health response
+        if (results[0].status === 'fulfilled') {
+          const healthData = await results[0].value.json();
+          setHealth(healthData);
+        } else {
+          console.error('Node.js server error:', results[0].reason);
+        }
+
+        // Handle Python API health response
+        if (results[1].status === 'fulfilled') {
+          const apiHealthData = await results[1].value.json();
+          setApiHealth(apiHealthData);
+        } else {
+          console.error('Python API error:', results[1].reason);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
       }
     };
 
     fetchHealthData();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
@@ -60,7 +75,12 @@ function App() {
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">
               Node.js Server Status
             </h2>
-            {health ? (
+            {isLoading ? (
+              <div className="flex items-center text-gray-500 animate-pulse">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mr-2"></div>
+                <span>Checking status...</span>
+              </div>
+            ) : health ? (
               <div className="space-y-2">
                 <div className="flex items-center">
                   <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
@@ -81,7 +101,12 @@ function App() {
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">
               Python API Status
             </h2>
-            {apiHealth ? (
+            {isLoading ? (
+              <div className="flex items-center text-gray-500 animate-pulse">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mr-2"></div>
+                <span>Checking status...</span>
+              </div>
+            ) : apiHealth ? (
               <div className="space-y-2">
                 <div className="flex items-center">
                   <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
