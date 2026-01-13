@@ -87,9 +87,12 @@ def cache_monitoring_dashboard():
 def get_db():
     """
     FastAPI dependency to get a database connection for each request.
+
+    By default, the sqlite3 library returns data as tuples, which is the
+    most memory-efficient and fastest way to access data. We avoid using
+    `db.row_factory = sqlite3.Row` to keep this performance benefit.
     """
     db = sqlite3.connect("genxdb_fx.db")
-    db.row_factory = sqlite3.Row
     try:
         yield db
     finally:
@@ -222,12 +225,13 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
         )
         pairs = cursor.fetchall()
 
+        # --- Performance: Accessing data by index is faster than by key ---
         return {
             "trading_pairs": [
                 {
-                    "symbol": pair["symbol"],
-                    "base_currency": pair["base_currency"],
-                    "quote_currency": pair["quote_currency"],
+                    "symbol": pair[0],
+                    "base_currency": pair[1],
+                    "quote_currency": pair[2],
                 }
                 for pair in pairs
             ]
@@ -251,12 +255,13 @@ async def get_users(db: sqlite3.Connection = Depends(get_db)):
         cursor.execute("SELECT username, email, is_active FROM users")
         users = cursor.fetchall()
 
+        # --- Performance: Accessing data by index is faster than by key ---
         return {
             "users": [
                 {
-                    "username": user["username"],
-                    "email": user["email"],
-                    "is_active": bool(user["is_active"])
+                    "username": user[0],
+                    "email": user[1],
+                    "is_active": bool(user[2])
                 }
                 for user in users
             ]
