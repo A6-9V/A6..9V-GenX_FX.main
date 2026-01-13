@@ -6,7 +6,9 @@ import os
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app
+    from api.main import app, get_db
+    from unittest.mock import MagicMock, PropertyMock
+    import sqlite3
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
@@ -130,3 +132,107 @@ def test_config_loading():
     assert isinstance(config, dict)
     assert "database_url" in config
     assert "symbols" in config
+
+def test_paginated_users_endpoint():
+    """
+    Tests the /users/paginated endpoint for correct pagination and response structure.
+    """
+    # --- Mock database dependency ---
+    mock_db = MagicMock()
+    mock_cursor = MagicMock()
+
+    # Simulate 20 users in the database
+    mock_users = []
+    for i in range(20):
+        mock_user = MagicMock(spec=sqlite3.Row)
+        mock_user.keys.return_value = ["username", "email", "is_active"]
+        mock_user.__getitem__.side_effect = {
+            "username": f"user{i}",
+            "email": f"user{i}@example.com",
+            "is_active": 1
+        }.__getitem__
+        mock_users.append(mock_user)
+
+    def mock_execute(query, params=None):
+        if "LIMIT" in query:
+            limit, offset = params
+            mock_cursor.fetchall.return_value = mock_users[offset : offset + limit]
+        elif "COUNT" in query:
+            mock_cursor.fetchone.return_value = (20,)
+
+    mock_cursor.execute.side_effect = mock_execute
+    mock_db.cursor.return_value = mock_cursor
+
+    def override_get_db():
+        try:
+            yield mock_db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # --- Test with limit and offset ---
+    response = client.get("/users/paginated?offset=5&limit=5")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["users"]) == 5
+    assert data["users"][0]["username"] == "user5"
+    assert data["total"] == 20
+
+    # --- Test with default parameters (limit=10, offset=0) ---
+    response = client.get("/users/paginated")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["users"]) == 10
+    assert data["users"][0]["username"] == "user0"
+    assert data["total"] == 20
+
+    # --- Cleanup mock ---
+    app.dependency_overrides = {}
+
+def test_deprecated_users_endpoint_limit():
+    """
+    Tests that the deprecated /users endpoint correctly applies the safety limit.
+    """
+    # --- Mock database dependency ---
+    mock_db = MagicMock()
+    mock_cursor = MagicMock()
+
+    # Simulate more than 100 users in the database
+    mock_users = []
+    for i in range(150):
+        mock_user = MagicMock(spec=sqlite3.Row)
+        mock_user.keys.return_value = ["username", "email", "is_active"]
+        mock_user.__getitem__.side_effect = {
+            "username": f"user{i}",
+            "email": f"user{i}@example.com",
+            "is_active": 1
+        }.__getitem__
+        mock_users.append(mock_user)
+
+    def mock_execute(query):
+        # This mock simulates the database returning only 100 users due to the LIMIT
+        if "LIMIT 100" in query:
+            mock_cursor.fetchall.return_value = mock_users[:100]
+        else:
+            mock_cursor.fetchall.return_value = mock_users
+
+    mock_cursor.execute.side_effect = mock_execute
+    mock_db.cursor.return_value = mock_cursor
+
+    def override_get_db():
+        try:
+            yield mock_db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # --- Test the deprecated endpoint ---
+    response = client.get("/users")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["users"]) == 100
+
+    # --- Cleanup mock ---
+    app.dependency_overrides = {}
