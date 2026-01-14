@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { RefreshCw } from 'lucide-react'
 import SystemTestResults from './components/SystemTestResults'
 
 /**
@@ -11,50 +12,49 @@ function App() {
   const [apiHealth, setApiHealth] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchHealthData = useCallback(async () => {
     const API = 'http://localhost:8081';
+    setIsLoading(true);
+    try {
+      /**
+       * Optimization: Parallel API Calls
+       *
+       * The health checks for the Node.js server and Python API are independent.
+       * By using Promise.all, we can run them in parallel instead of sequentially.
+       * This reduces the total time to fetch data, making the UI load faster.
+       *
+       * Estimated impact: Reduces load time by up to 50% (depending on network latency).
+       */
+      const results = await Promise.allSettled([
+        fetch(`${API}/health`),
+        fetch(`${API}/api/v1/health`)
+      ]);
 
-    /**
-     * Optimization: Parallel API Calls
-     *
-     * The health checks for the Node.js server and Python API are independent.
-     * By using Promise.all, we can run them in parallel instead of sequentially.
-     * This reduces the total time to fetch data, making the UI load faster.
-     *
-     * Estimated impact: Reduces load time by up to 50% (depending on network latency).
-     */
-    const fetchHealthData = async () => {
-      setIsLoading(true);
-      try {
-        const results = await Promise.allSettled([
-          fetch(`${API}/health`),
-          fetch(`${API}/api/v1/health`)
-        ]);
-
-        // Handle Node.js server health response
-        if (results[0].status === 'fulfilled') {
-          const healthData = await results[0].value.json();
-          setHealth(healthData);
-        } else {
-          console.error('Node.js server error:', results[0].reason);
-        }
-
-        // Handle Python API health response
-        if (results[1].status === 'fulfilled') {
-          const apiHealthData = await results[1].value.json();
-          setApiHealth(apiHealthData);
-        } else {
-          console.error('Python API error:', results[1].reason);
-        }
-      } catch (error) {
-        console.error('Error fetching health data:', error);
-      } finally {
-        setIsLoading(false);
+      // Handle Node.js server health response
+      if (results[0].status === 'fulfilled') {
+        const healthData = await results[0].value.json();
+        setHealth(healthData);
+      } else {
+        console.error('Node.js server error:', results[0].reason);
       }
-    };
 
-    fetchHealthData();
+      // Handle Python API health response
+      if (results[1].status === 'fulfilled') {
+        const apiHealthData = await results[1].value.json();
+        setApiHealth(apiHealthData);
+      } else {
+        console.error('Python API error:', results[1].reason);
+      }
+    } catch (error) {
+      console.error('Error fetching health data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchHealthData();
+  }, [fetchHealthData]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -63,6 +63,18 @@ function App() {
           🚀 GenX FX Trading Platform
         </h1>
         
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={fetchHealthData}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label={isLoading ? 'Refreshing system status' : 'Refresh system status'}
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+            <span>{isLoading ? 'Refreshing...' : 'Refresh Status'}</span>
+          </button>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">
