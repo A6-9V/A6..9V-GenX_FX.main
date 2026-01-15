@@ -79,50 +79,76 @@ async def create_prediction(
 @router.get("/batch/{symbols}")
 async def batch_predictions(
     symbols: str,
+    background_tasks: BackgroundTasks,
     timeframe: str = "1h",
     use_ensemble: bool = True,
     current_user: dict = Depends(get_current_user),
 ):
     """
     Generates predictions for a batch of symbols concurrently.
-
+    This endpoint is optimized to fetch all market data in a single batch
+    to avoid the N+1 problem, making it much more efficient than calling
+    the prediction endpoint for each symbol individually.
     Args:
         symbols (str): A comma-separated string of symbols (e.g., "BTCUSDT,ETHUSDT").
-        timeframe (str): The timeframe for the predictions.
+        background_tasks (BackgroundTasks): FastAPI's background task runner.
         use_ensemble (bool): Whether to use the ensemble model.
         current_user (dict): The authenticated user.
-
     Returns:
         dict: A dictionary containing lists of successful predictions and errors.
     """
     symbol_list = [s.strip().upper() for s in symbols.split(",")]
-
-    # This is a simplified approach. In a real app, you might want to manage
-    # background tasks more carefully when calling an endpoint from another.
-    # For this implementation, we create a new BackgroundTasks object for each.
-    tasks = [
-        create_prediction(
-            PredictionRequest(
-                symbol=symbol, timeframe=timeframe, use_ensemble=use_ensemble
-            ),
-            BackgroundTasks(),
-            current_user,
-        )
-        for symbol in symbol_list
-    ]
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
     predictions = []
     errors = []
 
+    # --- Performance Optimization: Batch Data Fetching ---
+    # Instead of fetching data for each symbol one by one, we fetch it all
+    # in a single batch. This significantly reduces latency and API calls.
+    market_data_batch = await data_service.get_batch_realtime_data(
+        symbol_list, timeframe
+    )
+
+    # --- Concurrently generate predictions ---
+    valid_symbols = [
+        s for s in symbol_list if s in market_data_batch and not market_data_batch[s].empty
+    ]
+
+    prediction_tasks = [
+        ml_service.predict(
+            symbol=symbol,
+            market_data=market_data_batch[symbol],
+            use_ensemble=use_ensemble,
+        )
+        for symbol in valid_symbols
+    ]
+
+    results = await asyncio.gather(*prediction_tasks, return_exceptions=True)
+
+    # --- Process results and log predictions ---
     for i, result in enumerate(results):
+        symbol = valid_symbols[i]
         if isinstance(result, Exception):
-            # Extract detail from HTTPException if possible
-            error_detail = getattr(result, "detail", str(result))
-            errors.append({"symbol": symbol_list[i], "error": error_detail})
+            errors.append({"symbol": symbol, "error": str(result)})
         else:
-            predictions.append(result)
+            # Log prediction in the background
+            background_tasks.add_task(ml_service.log_prediction, symbol, result)
+
+            # Create the response object
+            predictions.append(
+                PredictionResponse(
+                    symbol=symbol,
+                    prediction=SignalType(result["signal"]),
+                    confidence=result["confidence"],
+                    timestamp=datetime.now(),
+                    features_used=result["features"],
+                    model_version=result["model_version"],
+                )
+            )
+
+    # Report errors for symbols where data could not be fetched
+    for symbol in symbol_list:
+        if symbol not in valid_symbols:
+            errors.append({"symbol": symbol, "error": "Market data not found"})
 
     return {
         "predictions": predictions,
