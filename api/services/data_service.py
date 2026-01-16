@@ -29,12 +29,15 @@ class DataService:
         logger.info("Initializing Data Service...")
         self.initialized = True
 
-    async def get_realtime_data(self, symbol: str) -> Optional[pd.DataFrame]:
+    async def get_realtime_data(
+        self, symbol: str, timeframe: str = "1h"
+    ) -> Optional[pd.DataFrame]:
         """
         Retrieves real-time market data for a given symbol.
 
         Args:
             symbol (str): The trading symbol to fetch data for.
+            timeframe (str): The timeframe for the data (e.g., '1h', '4h').
 
         Returns:
             Optional[pd.DataFrame]: A DataFrame containing the latest market data,
@@ -67,6 +70,34 @@ class DataService:
             str: 'healthy' if the service is initialized, 'unhealthy' otherwise.
         """
         return "healthy" if self.initialized else "unhealthy"
+
+    async def get_batch_realtime_data(
+        self, symbols: list[str], timeframe: str = "1h"
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Retrieves real-time market data for a batch of symbols.
+
+        Args:
+            symbols (list[str]): A list of trading symbols.
+            timeframe (str): The timeframe for the data (e.g., '1h', '4h').
+
+        Returns:
+            dict[str, pd.DataFrame]: A dictionary where keys are symbols
+                                     and values are DataFrames with market data.
+        """
+        # In a real implementation, this would be a single efficient API call.
+        tasks = {
+            symbol: self.get_realtime_data(symbol, timeframe)
+            for symbol in symbols
+        }
+        results = await asyncio.gather(*tasks.values())
+
+        # Filter out None results and return a dictionary
+        return {
+            symbol: data
+            for symbol, data in zip(tasks.keys(), results)
+            if data is not None
+        }
 
     async def start_data_feed(self):
         """

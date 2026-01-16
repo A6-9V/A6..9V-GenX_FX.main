@@ -1,10 +1,9 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 import sqlite3
 import os
 from datetime import datetime
-import time
 import json
 import redis
 import logging
@@ -12,7 +11,7 @@ import logging
 app = FastAPI(
     title="GenX-FX Trading Platform API",
     description="Trading platform with ML-powered predictions",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Add CORS middleware
@@ -38,15 +37,56 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
 
 # --- Set up basic logging ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 try:
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, socket_connect_timeout=1)
+    redis_client = redis.Redis(
+        host=REDIS_HOST, port=REDIS_PORT, db=0, socket_connect_timeout=1
+    )
     redis_client.ping()
     logging.info("Successfully connected to Redis.")
 except redis.exceptions.ConnectionError as e:
-    logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
+    logging.error(
+        f"Could not connect to Redis: {e}. Caching will be disabled."
+    )
     redis_client = None
+
+
+# --------------------------------------------------------------------------
+# Performance Optimization: In-Memory Cache for Static HTML
+# --------------------------------------------------------------------------
+# To avoid reading the same static HTML file from disk on every request,
+# we cache its content in a global variable on application startup. This
+# reduces disk I/O and improves the response time for the monitoring dashboard.
+# --------------------------------------------------------------------------
+MONITORING_DASHBOARD_CACHE = None
+
+
+@app.on_event("startup")
+def cache_monitoring_dashboard():
+    """
+    Loads the monitoring dashboard HTML into an in-memory cache at startup.
+    """
+    global MONITORING_DASHBOARD_CACHE
+    try:
+        with open("monitoring_dashboard.html", "r") as f:
+            MONITORING_DASHBOARD_CACHE = f.read()
+        logging.info("Successfully cached monitoring_dashboard.html.")
+    except FileNotFoundError:
+        logging.error(
+            "monitoring_dashboard.html not found. "
+            "The /monitor endpoint will be disabled."
+        )
+        MONITORING_DASHBOARD_CACHE = (
+            "<h1>Error: Monitoring dashboard not found.</h1>"
+        )
+    except Exception as e:
+        logging.error(f"An error occurred while caching the dashboard: {e}")
+        MONITORING_DASHBOARD_CACHE = (
+            "<h1>Error: Could not load monitoring dashboard.</h1>"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -58,6 +98,7 @@ except redis.exceptions.ConnectionError as e:
 # standard pattern for managing resources in a web application.
 # --------------------------------------------------------------------------
 
+
 def get_db():
     """
     FastAPI dependency to get a database connection for each request.
@@ -68,6 +109,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 @app.get("/")
 async def root():
@@ -89,41 +131,62 @@ async def root():
         "repository": "https://github.com/Mouy-leng/GenX_FX.git",
     }
 
+
 @app.get("/health")
 async def health_check(db: sqlite3.Connection = Depends(get_db)):
     """
     Performs a health check on the API and its database connection.
 
     Attempts to connect to the SQLite database and execute a simple query.
+    This endpoint is optimized with a short-lived Redis cache to reduce
+    database load from frequent health checks.
 
     Returns:
         dict: A dictionary indicating the health status. 'healthy' if the
               database connection is successful, 'unhealthy' otherwise.
     """
+    # --- Performance: Use Redis cache if available ---
+    if redis_client:
+        try:
+            cached_health = redis_client.get("health_check_status")
+            if cached_health:
+                return json.loads(cached_health)
+        except redis.exceptions.ConnectionError as e:
+            logging.error(
+                f"Redis connection error: {e}. Performing live check."
+            )
+
     try:
         # --- Use the DB connection from the dependency ---
         cursor = db.cursor()
         cursor.execute("SELECT 1")
 
-        return {
+        healthy_response = {
             "status": "healthy",
             "database": "connected",
             "timestamp": datetime.now().isoformat(),
-            "services": {
-                "ml_service": "active",
-                "data_service": "active"
-            }
+            "services": {"ml_service": "active", "data_service": "active"},
         }
+
+        # --- Update Redis cache if available ---
+        if redis_client:
+            try:
+                redis_client.setex(
+                    "health_check_status", 10, json.dumps(healthy_response)
+                )
+            except redis.exceptions.ConnectionError as e:
+                logging.error(f"Could not write to Redis cache: {e}.")
+
+        return healthy_response
+
     except Exception as e:
         return {
             "status": "unhealthy",
             "error": str(e),
             "timestamp": datetime.now().isoformat(),
-            "services": {
-                "ml_service": "inactive",
-                "data_service": "inactive"
-            }
+            "services": {"ml_service": "inactive", "data_service": "inactive"},
         }
+
 
 @app.get("/api/v1/health")
 async def api_health_check():
@@ -141,6 +204,7 @@ async def api_health_check():
         "timestamp": datetime.now().isoformat(),
     }
 
+
 @app.post("/api/v1/predictions")
 async def get_predictions(request: dict):
     """
@@ -157,25 +221,41 @@ async def get_predictions(request: dict):
         "timestamp": datetime.now().isoformat(),
     }
 
+
 @app.get("/trading-pairs")
 async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
     """
     Retrieves a list of active trading pairs from the database.
 
-    Connects to the SQLite database and fetches all pairs marked as active.
+    This endpoint is optimized with a Redis cache to reduce database load, as
+    the list of trading pairs does not change frequently. The cache expires
+    every hour.
 
     Returns:
-        dict: A dictionary containing a list of trading pairs or an error message.
+        dict: A dictionary containing a list of trading pairs or an error
+              message.
     """
+    # --- Performance: Use Redis cache if available ---
+    if redis_client:
+        try:
+            cached_pairs = redis_client.get("trading_pairs_cache")
+            if cached_pairs:
+                return json.loads(cached_pairs)
+        except redis.exceptions.ConnectionError as e:
+            logging.error(
+                f"Redis connection error: {e}. Performing live query."
+            )
+
     try:
         # --- Use the DB connection from the dependency ---
         cursor = db.cursor()
         cursor.execute(
-            "SELECT symbol, base_currency, quote_currency FROM trading_pairs WHERE is_active = 1"
+            "SELECT symbol, base_currency, quote_currency "
+            "FROM trading_pairs WHERE is_active = 1"
         )
         pairs = cursor.fetchall()
 
-        return {
+        response = {
             "trading_pairs": [
                 {
                     "symbol": pair["symbol"],
@@ -185,19 +265,36 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
                 for pair in pairs
             ]
         }
+
+        # --- Update Redis cache if available ---
+        if redis_client:
+            try:
+                # Cache for 1 hour (3600 seconds)
+                redis_client.setex(
+                    "trading_pairs_cache", 3600, json.dumps(response)
+                )
+            except redis.exceptions.ConnectionError as e:
+                logging.error(f"Could not write to Redis cache: {e}.")
+
+        return response
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/users")
-async def get_users(db: sqlite3.Connection = Depends(get_db)):
+
+@app.get("/users", deprecated=True)
+async def get_users_deprecated(db: sqlite3.Connection = Depends(get_db)):
     """
     Retrieves a list of users from the database.
+
+    **Deprecated:** This endpoint is not recommended for new use. Please use
+    the paginated `/api/v2/users` endpoint instead.
 
     Connects to the SQLite database and fetches user information.
 
     Returns:
         dict: A dictionary containing a list of users or an error message.
     """
+    # --- Performance Warning: This endpoint is not paginated ---
     try:
         # --- Use the DB connection from the dependency ---
         cursor = db.cursor()
@@ -209,13 +306,53 @@ async def get_users(db: sqlite3.Connection = Depends(get_db)):
                 {
                     "username": user["username"],
                     "email": user["email"],
-                    "is_active": bool(user["is_active"])
+                    "is_active": bool(user["is_active"]),
                 }
                 for user in users
             ]
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.get("/api/v2/users")
+async def get_users(
+    db: sqlite3.Connection = Depends(get_db), skip: int = 0, limit: int = 10
+):
+    """
+    Retrieves a list of users from the database with pagination.
+
+    Connects to the SQLite database and fetches user information.
+
+    - **skip**: The number of records to skip (for pagination).
+    - **limit**: The maximum number of records to return.
+
+    Returns:
+        dict: A dictionary containing a list of users or an error message.
+    """
+    # --- Performance: Add pagination ---
+    try:
+        # --- Use the DB connection from the dependency ---
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT username, email, is_active FROM users LIMIT ? OFFSET ?",
+            (limit, skip),
+        )
+        users = cursor.fetchall()
+
+        return {
+            "users": [
+                {
+                    "username": user["username"],
+                    "email": user["email"],
+                    "is_active": bool(user["is_active"]),
+                }
+                for user in users
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.get("/mt5-info")
 async def get_mt5_info():
@@ -225,56 +362,60 @@ async def get_mt5_info():
     Returns:
         dict: A dictionary with static MT5 login and server details.
     """
-    return {"login": "279023502", "server": "Exness-MT5Trial8", "status": "configured"}
+    return {
+        "login": "279023502",
+        "server": "Exness-MT5Trial8",
+        "status": "configured",
+    }
+
 
 @app.get("/api/v1/monitor")
 async def get_monitoring_data():
     """
-    Retrieves the latest system metrics from the monitoring service.
-    This endpoint is optimized with a Redis cache to reduce disk I/O
-    and improve response time. It serves a cached version of the metrics if
-    available, otherwise it reads from the file and updates the cache.
+    Retrieves the latest system metrics directly from the Redis cache.
+
+    This endpoint is optimized to serve metrics from an in-memory Redis cache,
+    which is populated by the `system_monitor.py` service. This approach
+    avoids any disk I/O in the API, making it highly performant.
+
     Returns:
         dict: A dictionary containing the latest system metrics, or an
-              error message if the metrics are not available.
+              error message if the metrics are not available in the cache.
     """
-    # --- Performance: Use Redis cache if available ---
-    if redis_client:
-        try:
-            cached_metrics = redis_client.get("system_metrics")
-            if cached_metrics:
-                return json.loads(cached_metrics)
-        except redis.exceptions.ConnectionError as e:
-            logging.error(f"Redis connection error: {e}. Reading from file instead.")
+    if not redis_client:
+        return {
+            "error": "Redis is not connected; monitoring data is unavailable."
+        }
 
-    # --- If cache is empty or Redis is unavailable, read from disk ---
     try:
-        with open("system_metrics.json", "r") as f:
-            metrics = json.load(f)
-
-        # --- Update Redis cache if available ---
-        if redis_client:
-            try:
-                redis_client.setex("system_metrics", CACHE_DURATION_SECONDS, json.dumps(metrics))
-            except redis.exceptions.ConnectionError as e:
-                logging.error(f"Could not write to Redis cache: {e}.")
-
-        return metrics
-    except FileNotFoundError:
-        return {"error": "Monitoring data not available yet."}
+        cached_metrics = redis_client.get("system_metrics")
+        if cached_metrics:
+            return json.loads(cached_metrics)
+        else:
+            return {"error": "Monitoring data not available yet."}
+    except redis.exceptions.ConnectionError as e:
+        logging.error(f"Redis connection error: {e}")
+        return {"error": "Could not connect to Redis for monitoring data."}
     except Exception as e:
-        return {"error": str(e)}
+        logging.error(f"An unexpected error occurred: {e}")
+        return {"error": "An internal error occurred."}
+
 
 @app.get("/monitor")
 async def serve_monitoring_dashboard():
     """
-    Serves the monitoring dashboard HTML file.
+    Serves the monitoring dashboard HTML file from an in-memory cache.
+
+    This endpoint is optimized to serve the dashboard from a global variable,
+    reducing disk I/O and improving performance.
 
     Returns:
-        FileResponse: The HTML file for the monitoring dashboard.
+        HTMLResponse: The HTML content of the monitoring dashboard.
     """
-    return FileResponse("monitoring_dashboard.html")
+    return HTMLResponse(content=MONITORING_DASHBOARD_CACHE)
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+
+    uvicorn.run(app, host="0.0.0.0", port="8080")
