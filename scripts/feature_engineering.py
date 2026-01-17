@@ -14,24 +14,25 @@ def create_features(df):
     """
     Creates features for the machine learning model.
     """
-    # Calculate technical indicators
-    df['rsi'] = calculate_rsi(df['close'].values)
+    # --- Performance Optimization: Calculate all indicators before assigning ---
+    # To avoid chained indexing and repeated data slicing, we calculate all
+    # technical indicators first, based on the original 'close' series.
+    # This is more efficient and prevents pandas SettingWithCopyWarning.
+    close_prices = df['close']
+    rsi = calculate_rsi(close_prices)
+    macd_line, signal_line, histogram = calculate_macd(close_prices)
+    sma_20 = calculate_sma(close_prices, period=20)
+    sma_50 = calculate_sma(close_prices, period=50)
 
-    macd_line, signal_line, histogram = calculate_macd(df['close'].values)
-
-    # Align the lengths of the indicator arrays with the DataFrame
-    df = df.iloc[len(df) - len(histogram):].copy()
-    df['macd_line'] = macd_line[len(macd_line) - len(histogram):]
-    df['signal_line'] = signal_line[len(signal_line) - len(histogram):]
-    df['histogram'] = histogram
-
-    sma_20 = calculate_sma(df['close'].values, period=20)
-    df = df.iloc[len(df) - len(sma_20):].copy()
-    df['sma_20'] = sma_20
-
-    sma_50 = calculate_sma(df['close'].values, period=50)
-    df = df.iloc[len(df) - len(sma_50):].copy()
-    df['sma_50'] = sma_50
+    # Assign all indicators to the DataFrame at once.
+    df = df.assign(
+        rsi=rsi,
+        macd_line=macd_line,
+        signal_line=signal_line,
+        histogram=histogram,
+        sma_20=sma_20,
+        sma_50=sma_50
+    )
 
     # Create target variable (1 if the price goes up in the next period, 0 otherwise)
     df['target'] = (df['close'].shift(-1) > df['close']).astype(int)
