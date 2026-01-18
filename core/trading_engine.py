@@ -322,10 +322,16 @@ class TradingEngine:
             return None
     
     async def _get_multi_timeframe_data(self, symbol: str) -> Dict[str, pd.DataFrame]:
-        """Get market data for multiple timeframes"""
-        data = {}
+        """
+        Get market data for multiple timeframes concurrently.
+
+        Optimization: Fetches data for all configured timeframes in parallel
+        using asyncio.gather instead of sequentially. This significantly reduces
+        the data collection time for each symbol, making the signal generation
+        process faster, especially with more timeframes or higher latency.
+        """
         
-        for timeframe in self.config['timeframes']:
+        async def fetch_and_process(timeframe: str):
             try:
                 df = await self.data_provider.get_historical_data(
                     symbol=symbol,
@@ -335,12 +341,16 @@ class TradingEngine:
                 
                 # Add technical indicators
                 df = self.technical_indicators.add_all_indicators(df)
-                data[timeframe] = df
+                return timeframe, df
                 
             except Exception as e:
                 logger.error(f"Error getting data for {symbol} {timeframe}: {e}")
+                return timeframe, None
+
+        tasks = [fetch_and_process(tf) for tf in self.config['timeframes']]
+        results = await asyncio.gather(*tasks)
         
-        return data
+        return {tf: df for tf, df in results if df is not None}
     
     def _is_data_valid(self, market_data: Dict[str, pd.DataFrame]) -> bool:
         """Validate market data quality"""
