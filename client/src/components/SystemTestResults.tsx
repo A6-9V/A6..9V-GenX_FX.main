@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
 /**
  * A static component that displays system test results.
@@ -13,14 +13,19 @@ import { CheckCircle } from 'lucide-react';
  * Estimated impact: Reduces re-renders of this component to zero after the initial render.
  */
 const SystemTestResultsComponent = () => {
-  const results = [
-    "Configuration system fixed (Pydantic settings)",
-    "Python API tests: 27/27 passed",
-    "Node.js server tests: 15/17 passed (2 minor issues)",
-    "Edge case testing completed",
-    "Security validation (XSS, SQL injection prevention)",
-    "Performance testing passed",
-    "Build system configured"
+  interface TestResult {
+    text: string;
+    status: 'success' | 'warning';
+  }
+
+  const results: TestResult[] = [
+    { text: "Configuration system fixed (Pydantic settings)", status: 'success' },
+    { text: "Python API tests: 27/27 passed", status: 'success' },
+    { text: "Node.js server tests: 15/17 passed (2 minor issues)", status: 'warning' },
+    { text: "Edge case testing completed", status: 'success' },
+    { text: "Security validation (XSS, SQL injection prevention)", status: 'success' },
+    { text: "Performance testing passed", status: 'success' },
+    { text: "Build system configured", status: 'success' }
   ];
 
   return (
@@ -31,12 +36,19 @@ const SystemTestResultsComponent = () => {
       <ul className="space-y-3" role="list" aria-label="Test execution results">
         {results.map((result, index) => (
           <li key={index} className="flex items-start gap-3">
-            <CheckCircle
-              className="w-5 h-5 text-green-500 mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
+            {result.status === 'success' ? (
+              <CheckCircle
+                className="w-5 h-5 text-green-500 mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+            ) : (
+              <AlertCircle
+                className="w-5 h-5 text-amber-500 mt-0.5 shrink-0"
+                aria-hidden="true"
+              />
+            )}
             <span className="text-sm text-gray-700 leading-6">
-              {result}
+              {result.text}
             </span>
           </li>
         ))}
