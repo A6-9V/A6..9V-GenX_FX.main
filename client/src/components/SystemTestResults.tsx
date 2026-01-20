@@ -48,6 +48,9 @@ const SystemTestResultsComponent = () => {
               />
             )}
             <span className="text-sm text-gray-700 leading-6">
+              <span className="sr-only">
+                {result.status === 'success' ? 'Success: ' : 'Warning: '}
+              </span>
               {result.text}
             </span>
           </li>
