@@ -2,14 +2,29 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import SystemTestResults from './components/SystemTestResults'
 
+interface HealthData {
+  status: string;
+  environment: string;
+  timestamp: string;
+}
+
+interface ApiHealthData {
+  status: string;
+  services?: {
+    ml_service: string;
+    data_service: string;
+  };
+  timestamp: string;
+}
+
 /**
  * The main application component.
  * It fetches and displays the health status of the Node.js server and the Python API.
  * @returns {JSX.Element} The rendered application component.
  */
 function App() {
-  const [health, setHealth] = useState<any>(null)
-  const [apiHealth, setApiHealth] = useState<any>(null)
+  const [health, setHealth] = useState<HealthData | null>(null)
+  const [apiHealth, setApiHealth] = useState<ApiHealthData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchHealthData = useCallback(async () => {

@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import WebSocket, { WebSocketServer } from 'ws';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 
 // Mock the routes and vite modules
 vi.mock('../routes.js', () => ({
   registerRoutes: vi.fn((app) => {
-    app.get('/api/test', (req, res) => res.json({ message: 'test endpoint' }));
+    app.get('/api/test', (_req, res) => res.json({ message: 'test endpoint' }));
     app.post('/api/data', (req, res) => res.json({ received: req.body }));
-    app.get('/api/error', (req, res) => { throw new Error('Test error'); });
+    app.get('/api/error', (_req, _res) => { throw new Error('Test error'); });
   })
 }));
 
@@ -23,7 +23,6 @@ describe('GenX FX Server Comprehensive Tests', () => {
   let app: express.Application;
   let server: any;
   let wss: WebSocketServer;
-  let baseURL: string;
 
   beforeAll(async () => {
     // Create test server similar to main server
@@ -52,7 +51,7 @@ describe('GenX FX Server Comprehensive Tests', () => {
     registerRoutes(app);
 
     // Specific error handler for json parsing errors
-    app.use((err: any, req: any, res: any, next: any) => {
+    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
       if (err.type === 'entity.too.large') {
         return res.status(413).json({ error: 'Payload Too Large' });
       }
@@ -63,7 +62,7 @@ describe('GenX FX Server Comprehensive Tests', () => {
     });
 
     // Generic error handling middleware
-    app.use((err: any, req: any, res: any, next: any) => {
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       res.status(500).json({
         error: 'Internal server error',
         message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
@@ -81,7 +80,6 @@ describe('GenX FX Server Comprehensive Tests', () => {
     server = createServer(app);
     const port = 5001; // Use different port for tests
     server.listen(port);
-    baseURL = `http://localhost:${port}`;
 
     wss = new WebSocketServer({ server });
     wss.on('connection', (ws) => {
