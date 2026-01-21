@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
 import sqlite3
 import os
@@ -14,12 +15,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Add Trusted Host middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "genx-fx.com", "testserver"]
+)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "https://genx-fx.com"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
