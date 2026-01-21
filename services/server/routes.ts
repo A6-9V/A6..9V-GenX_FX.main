@@ -53,7 +53,7 @@ export function registerRoutes(app: Express) {
       try {
         await db.select().from(users).limit(1);
         checks.database = 'connected';
-      } catch (dbError) {
+      } catch {
         checks.database = 'disconnected';
       }
 
@@ -61,7 +61,7 @@ export function registerRoutes(app: Express) {
       try {
         // This would be where you'd ping your Python service
         checks.python_service = 'available';
-      } catch (pyError) {
+      } catch {
         checks.python_service = 'unavailable';
       }
 
@@ -90,7 +90,7 @@ export function registerRoutes(app: Express) {
       const { page = '1', limit = '10', search = '', skillLevel, category } = req.query;
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
-      let whereConditions = [];
+      const whereConditions = [];
 
       if (search) {
         whereConditions.push(
@@ -323,7 +323,7 @@ export function registerRoutes(app: Express) {
   // Trade confirmation from EA
   app.post('/api/mt45/trade-confirmation', async (req, res) => {
     try {
-      const { connectionId, originalSignal, status, timestamp } = req.body;
+      const { connectionId, status } = req.body;
 
       console.log(`Trade confirmation from ${connectionId}: ${status}`);
 

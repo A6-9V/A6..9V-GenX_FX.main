@@ -48,11 +48,20 @@ export function errorLogger(err: Error, req: Request, res: Response, next: NextF
   next(err);
 }
 
+interface HealthDetails {
+  timestamp: string;
+  uptime: number;
+  memory: NodeJS.MemoryUsage;
+  environment: string;
+  nodeVersion: string;
+  platform: string;
+}
+
 /**
  * Performs a health check of the service, returning status and details.
- * @returns {Promise<{ status: string; details: any }>} A promise that resolves to the health check status.
+ * @returns {Promise<{ status: string; details: HealthDetails }>} A promise that resolves to the health check status.
  */
-export async function healthCheck(): Promise<{ status: string; details: any }> {
+export async function healthCheck(): Promise<{ status: string; details: HealthDetails }> {
   const details = {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
