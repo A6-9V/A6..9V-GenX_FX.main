@@ -322,25 +322,48 @@ class TradingEngine:
             return None
     
     async def _get_multi_timeframe_data(self, symbol: str) -> Dict[str, pd.DataFrame]:
-        """Get market data for multiple timeframes"""
-        data = {}
+        """
+        Get market data for multiple timeframes concurrently.
+
+        Optimization: Fetches data for all configured timeframes in parallel
+        using asyncio.gather instead of sequentially. This significantly reduces
+        the data collection time for each symbol, making the signal generation
+        process faster, especially with more timeframes or higher latency.
+        """
         
-        for timeframe in self.config['timeframes']:
+        async def fetch_and_process(timeframe: str):
+            """
+            Asynchronously fetches data and then runs the CPU-bound indicator
+            calculations in a separate thread to avoid blocking the event loop.
+            """
             try:
+                # 1. Asynchronously fetch I/O-bound data
                 df = await self.data_provider.get_historical_data(
                     symbol=symbol,
                     timeframe=timeframe,
                     periods=self.config['ai_models']['lookback_periods']
                 )
                 
-                # Add technical indicators
-                df = self.technical_indicators.add_all_indicators(df)
-                data[timeframe] = df
+                if df is None or df.empty:
+                    return timeframe, None
+
+                # 2. Run CPU-bound calculations in a thread pool
+                # This prevents blocking the asyncio event loop.
+                df_with_indicators = await asyncio.to_thread(
+                    self.technical_indicators.add_all_indicators, df
+                )
+                return timeframe, df_with_indicators
                 
             except Exception as e:
                 logger.error(f"Error getting data for {symbol} {timeframe}: {e}")
+                return timeframe, None
+
+        # Schedule all fetch/process tasks to run concurrently
+        tasks = [fetch_and_process(tf) for tf in self.config['timeframes']]
+        results = await asyncio.gather(*tasks)
         
-        return data
+        # Filter out any tasks that failed
+        return {tf: df for tf, df in results if df is not None and not df.empty}
     
     def _is_data_valid(self, market_data: Dict[str, pd.DataFrame]) -> bool:
         """Validate market data quality"""
