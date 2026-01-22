@@ -13,7 +13,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchHealthData = useCallback(async () => {
-    const API = 'http://localhost:8081';
+    const API = '';
     setIsLoading(true);
     try {
       /**
