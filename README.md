@@ -64,7 +64,7 @@ This option allows you to run the entire backend, API, and AI models for develop
     The project uses both Python and Node.js.
     ```bash
     pip install -r requirements.txt
-    npm install
+    pnpm install
     ```
 
 3.  **Set Up Environment Variables**:
@@ -80,9 +80,9 @@ This option allows you to run the entire backend, API, and AI models for develop
 5.  **Run the System**:
     The platform includes a concurrent runner for the frontend and backend services.
     ```bash
-    npm run dev
+    pnpm dev
     ```
-    This command will start the FastAPI backend and the React frontend simultaneously. You can then access the platform at `http://localhost:3000`.
+    This command will start the FastAPI backend (8080), Node service (3000), and the React frontend (5173) simultaneously. You can then access the platform at `http://localhost:5173`.
 
 ---
 
@@ -113,7 +113,7 @@ The repository includes a comprehensive test suite for both the Python backend a
     ```
 -   **JavaScript/TypeScript Tests (Vitest)**:
     ```bash
-    npm test
+    pnpm test
     ```
 
 ### Code Style and Linting
@@ -121,7 +121,7 @@ The repository includes a comprehensive test suite for both the Python backend a
 -   **Python**: The project follows PEP 8 standards. We recommend using a formatter like Black.
 -   **TypeScript/JavaScript**: The project uses Prettier and ESLint for code formatting and linting.
     ```bash
-    npm run lint
+    pnpm lint
     ```
 
 ---
