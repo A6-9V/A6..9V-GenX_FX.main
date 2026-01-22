@@ -13,7 +13,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchHealthData = useCallback(async () => {
-    const API = 'http://localhost:8081';
+    // API URL is relative to leverage Vite proxy in development and same-origin in production
     setIsLoading(true);
     try {
       /**
@@ -26,8 +26,8 @@ function App() {
        * Estimated impact: Reduces load time by up to 50% (depending on network latency).
        */
       const results = await Promise.allSettled([
-        fetch(`${API}/health`),
-        fetch(`${API}/api/v1/health`)
+        fetch('/health'),
+        fetch('/api/v1/health')
       ]);
 
       // Handle Node.js server health response
