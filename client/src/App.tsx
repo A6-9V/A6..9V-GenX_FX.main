@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import SystemTestResults from './components/SystemTestResults'
+import Billing from './pages/Billing';
 
-/**
- * The main application component.
- * It fetches and displays the health status of the Node.js server and the Python API.
- * @returns {JSX.Element} The rendered application component.
- */
-function App() {
+const Home = () => {
   const [health, setHealth] = useState<any>(null)
   const [apiHealth, setApiHealth] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -56,84 +53,106 @@ function App() {
   }, [fetchHealthData]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">
-          🚀 GenX FX Trading Platform
-        </h1>
-        
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={fetchHealthData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            aria-label={isLoading ? 'Refreshing system status' : 'Refresh system status'}
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
-            <span>{isLoading ? 'Refreshing...' : 'Refresh Status'}</span>
-          </button>
-        </div>
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">
+        🚀 GenX FX Trading Platform
+      </h1>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-              Node.js Server Status
-            </h2>
-            {isLoading ? (
-              <div className="space-y-2 animate-pulse" role="status" aria-label="Loading Node.js server status">
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              </div>
-            ) : health ? (
-              <div className="space-y-2" role="status">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-700 mr-2" aria-hidden="true" />
-                  <span>Status: {health.status}</span>
-                </div>
-                <div>Environment: {health.environment}</div>
-                <div>Timestamp: {health.timestamp}</div>
-              </div>
-            ) : (
-              <div className="flex items-center" role="alert">
-                <AlertCircle className="w-5 h-5 text-red-600 mr-2" aria-hidden="true" />
-                <span>Server not responding</span>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-              Python API Status
-            </h2>
-            {isLoading ? (
-              <div className="space-y-2 animate-pulse" role="status" aria-label="Loading Python API status">
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              </div>
-            ) : apiHealth ? (
-              <div className="space-y-2" role="status">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-green-700 mr-2" aria-hidden="true" />
-                  <span>Status: {apiHealth.status}</span>
-                </div>
-                <div>ML Service: {apiHealth.services?.ml_service}</div>
-                <div>Data Service: {apiHealth.services?.data_service}</div>
-                <div>Timestamp: {apiHealth.timestamp}</div>
-              </div>
-            ) : (
-              <div className="flex items-center" role="alert">
-                <AlertCircle className="w-5 h-5 text-red-600 mr-2" aria-hidden="true" />
-                <span>API not responding</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <SystemTestResults />
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={fetchHealthData}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label={isLoading ? 'Refreshing system status' : 'Refresh system status'}
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+          <span>{isLoading ? 'Refreshing...' : 'Refresh Status'}</span>
+        </button>
       </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+            Node.js Server Status
+          </h2>
+          {isLoading ? (
+            <div className="space-y-2 animate-pulse" role="status" aria-label="Loading Node.js server status">
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            </div>
+          ) : health ? (
+            <div className="space-y-2" role="status">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-700 mr-2" aria-hidden="true" />
+                <span>Status: {health.status}</span>
+              </div>
+              <div>Environment: {health.environment}</div>
+              <div>Timestamp: {health.timestamp}</div>
+            </div>
+          ) : (
+            <div className="flex items-center" role="alert">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" aria-hidden="true" />
+              <span>Server not responding</span>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+            Python API Status
+          </h2>
+          {isLoading ? (
+            <div className="space-y-2 animate-pulse" role="status" aria-label="Loading Python API status">
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            </div>
+          ) : apiHealth ? (
+            <div className="space-y-2" role="status">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-700 mr-2" aria-hidden="true" />
+                <span>Status: {apiHealth.status}</span>
+              </div>
+              <div>ML Service: {apiHealth.services?.ml_service}</div>
+              <div>Data Service: {apiHealth.services?.data_service}</div>
+              <div>Timestamp: {apiHealth.timestamp}</div>
+            </div>
+          ) : (
+            <div className="flex items-center" role="alert">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" aria-hidden="true" />
+              <span>API not responding</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <SystemTestResults />
     </div>
+  )
+}
+
+/**
+ * The main application component.
+ * It fetches and displays the health status of the Node.js server and the Python API.
+ * @returns {JSX.Element} The rendered application component.
+ */
+function App() {
+  return (
+    <Router>
+      <div className="min-h-screen bg-gray-100 p-8">
+        <nav className="bg-white rounded-lg shadow-md p-4 mb-8">
+          <ul className="flex space-x-4">
+            <li><Link to="/" className="text-blue-500 hover:underline">Home</Link></li>
+            <li><Link to="/billing" className="text-blue-500 hover:underline">Billing</Link></li>
+          </ul>
+        </nav>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/billing" element={<Billing />} />
+        </Routes>
+      </div>
+    </Router>
   )
 }
 

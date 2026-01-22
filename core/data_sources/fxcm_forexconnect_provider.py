@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable
+import aiohttp
 import json
 import time
 from dataclasses import dataclass
@@ -24,6 +25,28 @@ except ImportError:
     logging.warning("ForexConnect module not available. Install with: pip install forexconnect")
 
 logger = logging.getLogger(__name__)
+
+# List of potential server URLs
+SERVER_URLS = [
+    "http://www.fxcorporate.com/Hosts.jsp",
+    "https://www.fxcorporate.com/Hosts.jsp",
+    "http://www.fxcm.com/Hosts.jsp",
+    "https://www.fxcm.com/Hosts.jsp",
+    "http://www.fxcm.co.uk/Hosts.jsp",
+    "https://www.fxcm.co.uk/Hosts.jsp",
+    "http://www.fxcm.com.au/Hosts.jsp",
+    "https://www.fxcm.com.au/Hosts.jsp",
+    "http://www.fxcm.fr/Hosts.jsp",
+    "https://www.fxcm.fr/Hosts.jsp",
+    "http://www.fxcm.de/Hosts.jsp",
+    "https://www.fxcm.de/Hosts.jsp",
+    "http://www.fxcm.it/Hosts.jsp",
+    "https://www.fxcm.it/Hosts.jsp",
+    "http://www.fxcm.gr/Hosts.jsp",
+    "https://www.fxcm.gr/Hosts.jsp",
+    "http://www.fxcm.jp/Hosts.jsp",
+    "https://www.fxcm.jp/Hosts.jsp",
+]
 
 @dataclass
 class FXCMForexConnectConfig:
@@ -51,6 +74,7 @@ class FXCMForexConnectConfig:
     timeout: int = 30
     retry_attempts: int = 3
     auto_reconnect: bool = True
+    auto_select_server: bool = False
 
 class FXCMForexConnectProvider:
     """
@@ -124,6 +148,40 @@ class FXCMForexConnectProvider:
         
         logger.info(f"FXCM ForexConnect Provider initialized for {self.config.connection_type} environment")
     
+    async def _measure_latency(self, session: aiohttp.ClientSession, url: str) -> float:
+        """Measures the latency of a given URL."""
+        try:
+            start_time = time.monotonic()
+            async with session.get(url, timeout=5) as response:
+                await response.text()
+                end_time = time.monotonic()
+                latency = end_time - start_time
+                logger.info(f"Successfully connected to {url} with latency: {latency:.4f}s")
+                return latency
+        except Exception as e:
+            logger.warning(f"Failed to connect to {url}: {e}")
+            return float('inf')
+
+    async def find_best_server(self) -> str:
+        """Finds the best server from a list by measuring latency."""
+        async with aiohttp.ClientSession() as session:
+            tasks = [self._measure_latency(session, server) for server in SERVER_URLS]
+            latencies = await asyncio.gather(*tasks)
+
+        server_latencies = {SERVER_URLS[i]: latencies[i] for i in range(len(SERVER_URLS))}
+
+        reachable_servers = {s: l for s, l in server_latencies.items() if l != float('inf')}
+
+        if not reachable_servers:
+            logger.error("No reachable servers found.")
+            return ""
+
+        best_server = min(reachable_servers, key=reachable_servers.get)
+        min_latency = reachable_servers[best_server]
+        logger.info(f"The best server is {best_server} with a latency of {min_latency:.4f}s")
+
+        return best_server
+
     async def connect(self) -> bool:
         """
         Establishes a connection to the FXCM platform using the ForexConnect API.
@@ -137,6 +195,16 @@ class FXCMForexConnectProvider:
                 return False
 
             logger.info("Connecting to FXCM ForexConnect...")
+
+            connection_url = self.config.url
+            if self.config.auto_select_server:
+                logger.info("Auto-selecting best server...")
+                best_server = await self.find_best_server()
+                if best_server:
+                    connection_url = best_server
+                else:
+                    logger.warning("Could not find best server, falling back to default URL.")
+
             loop = asyncio.get_event_loop()
 
             # The forexconnect library is synchronous, so we run it in an executor
@@ -146,7 +214,7 @@ class FXCMForexConnectProvider:
                 lambda: self.forex_connect.login(
                     user_id=self.config.username,
                     password=self.config.password,
-                    url=self.config.url,
+                    url=connection_url,
                     connection=self.config.connection_type,
                     session_id=self.config.session_id,
                     pin=self.config.pin,

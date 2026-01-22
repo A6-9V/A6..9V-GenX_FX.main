@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import sqlite3
 import os
@@ -9,6 +10,17 @@ from datetime import datetime
 import json
 import redis.asyncio as redis
 import logging
+import re
+import pandas as pd
+from pydantic import BaseModel
+
+# Check if ai_models module exists and can be imported
+try:
+    from ai_models.ensemble_predictor import EnsemblePredictor
+    has_ai_models = True
+except ImportError:
+    logging.warning("Could not import ai_models. Predictions will be disabled.")
+    has_ai_models = False
 
 # --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
@@ -22,12 +34,14 @@ logging.basicConfig(
 
 redis_client = None
 MONITORING_DASHBOARD_CACHE = None
+predictor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     global redis_client
     global MONITORING_DASHBOARD_CACHE
+    global predictor
 
     # Redis Connection
     try:
@@ -41,6 +55,30 @@ async def lifespan(app: FastAPI):
             f"Could not connect to Redis: {e}. Caching will be disabled."
         )
         redis_client = None
+
+    if has_ai_models:
+        try:
+            predictor = EnsemblePredictor()
+            logging.info("EnsemblePredictor initialized.")
+        except Exception as e:
+            logging.error(f"Failed to initialize EnsemblePredictor: {e}")
+            predictor = None
+
+    # Billing table setup
+    try:
+        conn = sqlite3.connect("genxdb_fx.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payment_methods (
+                id INTEGER PRIMARY KEY,
+                cardholder_name TEXT,
+                masked_card_number TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.error(f"Failed to setup database: {e}")
 
     # Cache Monitoring Dashboard
     try:
@@ -81,6 +119,12 @@ app.add_middleware(
     allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "genx-fx.com", "testserver"]
 )
 
+class PaymentMethod(BaseModel):
+    cardholderName: str
+    cardNumber: str
+    expiryDate: str
+    cvc: str
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -94,7 +138,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
 
 
 # --------------------------------------------------------------------------
@@ -118,6 +161,14 @@ def get_db():
     finally:
         db.close()
 
+def is_safe_string(input_string):
+    """
+    A simple function to check for potentially malicious characters.
+    """
+    # Reject strings with common SQL injection or XSS characters
+    if re.search(r"[;\"'<>]", input_string):
+        return False
+    return True
 
 @app.get("/")
 async def root():
@@ -159,7 +210,6 @@ async def root():
             logging.error(f"Could not write to Redis cache: {e}.")
 
     return response
-
 
 @app.get("/health")
 async def health_check(db: sqlite3.Connection = Depends(get_db)):
@@ -216,7 +266,6 @@ async def health_check(db: sqlite3.Connection = Depends(get_db)):
             "services": {"ml_service": "inactive", "data_service": "inactive"},
         }
 
-
 @app.get("/api/v1/health")
 async def api_health_check():
     """
@@ -235,24 +284,57 @@ async def api_health_check():
 
 
 @app.post("/api/v1/predictions")
-async def get_predictions(request: dict):
+async def get_predictions(request: Request):
     """
     Endpoint to get trading predictions.
 
-    Currently returns a placeholder response.
+    Accepts a POST request with historical price data and returns a prediction.
 
     Returns:
-        dict: A dictionary containing an empty list of predictions.
+        dict: A dictionary containing the prediction.
     """
-    return {
-        "predictions": [],
-        "status": "ready",
-        "timestamp": datetime.now().isoformat(),
-    }
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # Basic validation
+    if "historical_data" not in data or not isinstance(data["historical_data"], list):
+        pass
+
+    if predictor:
+        try:
+            if "historical_data" in data and isinstance(data["historical_data"], list):
+                df = pd.DataFrame(data["historical_data"])
+                # Basic data validation
+                required_columns = ['open', 'high', 'low', 'close', 'volume']
+                if not all(col in df.columns for col in required_columns):
+                    raise HTTPException(status_code=400, detail="Missing required columns in historical data.")
+
+                prediction = predictor.predict(df)
+                return prediction
+            else:
+                 return {
+                    "predictions": [],
+                    "status": "ready (no data provided)",
+                    "timestamp": datetime.now().isoformat(),
+                }
+        except Exception as e:
+            logging.error(f"Prediction failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+    else:
+        return {
+            "predictions": [],
+            "status": "predictor not initialized",
+            "timestamp": datetime.now().isoformat(),
+        }
 
 
 @app.get("/trading-pairs")
-async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
+async def get_trading_pairs(
+    symbol: str | None = Query(default=None),
+    db: sqlite3.Connection = Depends(get_db)
+):
     """
     Retrieves a list of active trading pairs from the database.
 
@@ -260,12 +342,14 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
     the list of trading pairs does not change frequently. The cache expires
     every hour.
 
+    If a symbol filter is provided, it performs a direct database query.
+
     Returns:
         dict: A dictionary containing a list of trading pairs or an error
               message.
     """
-    # --- Performance: Use Redis cache if available ---
-    if redis_client:
+    # --- Performance: Use Redis cache if available and no filter ---
+    if redis_client and not symbol:
         try:
             cached_pairs = await redis_client.get("trading_pairs_cache")
             if cached_pairs:
@@ -278,10 +362,19 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
     try:
         # --- Use the DB connection from the dependency ---
         cursor = db.cursor()
-        cursor.execute(
-            "SELECT symbol, base_currency, quote_currency "
-            "FROM trading_pairs WHERE is_active = 1"
-        )
+
+        if symbol:
+            cursor.execute(
+                "SELECT symbol, base_currency, quote_currency "
+                "FROM trading_pairs WHERE is_active = 1 AND symbol = ?",
+                (symbol,)
+            )
+        else:
+            cursor.execute(
+                "SELECT symbol, base_currency, quote_currency "
+                "FROM trading_pairs WHERE is_active = 1"
+            )
+
         pairs = cursor.fetchall()
 
         response = {
@@ -295,8 +388,8 @@ async def get_trading_pairs(db: sqlite3.Connection = Depends(get_db)):
             ]
         }
 
-        # --- Update Redis cache if available ---
-        if redis_client:
+        # --- Update Redis cache if available and no filter ---
+        if redis_client and not symbol:
             try:
                 # Cache for 1 hour (3600 seconds)
                 await redis_client.setex(
@@ -462,7 +555,53 @@ async def serve_monitoring_dashboard():
     return HTMLResponse(content=MONITORING_DASHBOARD_CACHE)
 
 
+@app.post("/api/v1/billing")
+async def add_payment_method(payment_method: PaymentMethod):
+    """
+    Adds a new payment method to the database.
+
+    Returns:
+        dict: A dictionary with a success message.
+    """
+    try:
+        masked_card_number = f"**** **** **** {payment_method.cardNumber[-4:]}"
+        conn = sqlite3.connect("genxdb_fx.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO payment_methods (cardholder_name, masked_card_number) VALUES (?, ?)",
+            (
+                payment_method.cardholderName,
+                masked_card_number,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Payment method added successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/data")
+async def handle_data(data: dict):
+    """
+    Handles incoming data POST requests.
+
+    This endpoint is designed to gracefully handle various data formats
+    and return a consistent success response. It's used for testing
+    edge cases and data validation.
+
+    Args:
+        data (dict): The incoming data payload.
+
+    Returns:
+        dict: A success message.
+    """
+    # In a real application, you would process the data here
+    return {"status": "success", "data_received": data}
+
+# Serve the frontend (Place this after all API routes)
+if os.path.exists("client/dist"):
+    app.mount("/", StaticFiles(directory="client/dist", html=True), name="static")
+
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port="8080")
+    uvicorn.run(app, host="0.0.0.0", port=8080)
