@@ -64,7 +64,7 @@ This option allows you to run the entire backend, API, and AI models for develop
     The project uses both Python and Node.js.
     ```bash
     pip install -r requirements.txt
-    npm install
+    pnpm install
     ```
 
 3.  **Set Up Environment Variables**:
@@ -80,9 +80,12 @@ This option allows you to run the entire backend, API, and AI models for develop
 5.  **Run the System**:
     The platform includes a concurrent runner for the frontend and backend services.
     ```bash
-    npm run dev
+    pnpm dev
     ```
-    This command will start the FastAPI backend and the React frontend simultaneously. You can then access the platform at `http://localhost:3000`.
+    This command starts the following services concurrently:
+    - **Frontend**: Accessible at `http://localhost:5173`
+    - **Node.js Backend**: Running on `http://localhost:3000`
+    - **Python API**: Running on `http://localhost:8000`
 
 ---
 
@@ -94,7 +97,7 @@ The GenX FX platform is a monorepo containing several key components:
 -   **`core/`**: The core trading logic, including strategies, indicators, pattern detection, risk management, and the main trading engine.
 -   **`ai_models/`**: Contains the machine learning models (e.g., `EnsemblePredictor`) and the logic for generating predictions.
 -   **`client/`**: The web-based frontend built with **React** and **TypeScript**.
--   **`services/`**: Contains various services for interacting with external APIs like FXCM, Reddit, and Google Gemini, as well as WebSocket and spreadsheet managers.
+-   **`services/`**: Contains the **Node.js Express backend** and various services for interacting with external APIs like FXCM, Reddit, and Google Gemini, as well as WebSocket and spreadsheet managers.
 -   **`expert-advisors/`**: Contains the MetaTrader 4 (MQ4) and MetaTrader 5 (MQ5) Expert Advisor files.
 -   **`utils/`**: Shared utilities for logging, configuration management, and model validation.
 -   **`deploy/`**: Deployment scripts for various cloud platforms, including AWS and Exness VPS.
@@ -113,7 +116,7 @@ The repository includes a comprehensive test suite for both the Python backend a
     ```
 -   **JavaScript/TypeScript Tests (Vitest)**:
     ```bash
-    npm test
+    pnpm test
     ```
 
 ### Code Style and Linting
@@ -121,7 +124,7 @@ The repository includes a comprehensive test suite for both the Python backend a
 -   **Python**: The project follows PEP 8 standards. We recommend using a formatter like Black.
 -   **TypeScript/JavaScript**: The project uses Prettier and ESLint for code formatting and linting.
     ```bash
-    npm run lint
+    pnpm run lint
     ```
 
 ---
