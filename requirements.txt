@@ -88,3 +88,6 @@ safety>=3.3.0,<4.0.0
 
 # Web server support for health checks
 # No additional web framework needed, using built-in http.server
+optuna
+tensorflow
+httpx

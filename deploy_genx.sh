@@ -29,7 +29,7 @@ cat > .env << 'EOF'
 # === Docker Registry Credentials ===
 DOCKER_USERNAME=
 DOCKER_PASSWORD=
-DOCKER_IMAGE=
+DOCKER_IMAGE=keamouyleng/genx_docker
 DOCKER_TAG=latest
 
 # === API Keys ===
