@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+test-results/
 
 # Translations
 *.mo
@@ -204,6 +205,7 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .yarn-integrity
+*.tsbuildinfo
 
 # AWS
 .aws/

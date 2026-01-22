@@ -56,7 +56,7 @@ source forexconnect_env/bin/activate
 
 # Install ForexConnect and dependencies
 pip install --upgrade pip
-pip install numpy pandas forexconnect openpyxl
+pip install numpy pandas forexconnect openpyxl aiohttp
 
 # Verify installation
 python -c "import forexconnect as fx; print('ForexConnect installed successfully!')"
@@ -87,7 +87,8 @@ export FXCM_URL='http://fxcorporate.com/Hosts.jsp'
     "url": "${FXCM_URL}",
     "timeout": 30,
     "retry_attempts": 3,
-    "auto_reconnect": true
+    "auto_reconnect": true,
+    "auto_select_server": true
   },
   "data_provider": {
     "symbols": ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD"],
@@ -356,11 +357,12 @@ CMD ["python", "main.py", "--mode", "live"]
 
 ## Performance Optimization
 
-1. **Data Caching**: Cache frequently requested data
-2. **Connection Pooling**: Reuse connections when possible
-3. **Batch Operations**: Group multiple API calls
-4. **Async Operations**: Use asyncio for concurrent operations
-5. **Memory Management**: Clean up old data regularly
+1. **Automatic Server Selection**: Enable `auto_select_server` in the configuration to automatically select the server with the lowest latency. This can improve connection speed and reliability.
+2. **Data Caching**: Cache frequently requested data
+3. **Connection Pooling**: Reuse connections when possible
+4. **Batch Operations**: Group multiple API calls
+5. **Async Operations**: Use asyncio for concurrent operations
+6. **Memory Management**: Clean up old data regularly
 
 ## Monitoring and Logging
 
