@@ -54,11 +54,15 @@ class TechnicalIndicators:
                     # Exponential Moving Average
                     df[f'ema_{period}'] = df['close'].ewm(span=period).mean()
                     
-                    # Weighted Moving Average
+                    # Weighted Moving Average (Optimized)
+                    # The original pandas apply() method is slow. This implementation
+                    # uses numpy.convolve for a significant performance boost.
                     weights = np.arange(1, period + 1)
-                    df[f'wma_{period}'] = df['close'].rolling(window=period).apply(
-                        lambda x: np.dot(x, weights) / weights.sum(), raw=True
-                    )
+                    denominator = weights.sum()
+                    wma_values = np.convolve(df['close'], weights, mode='valid') / denominator
+
+                    # Align the convolution output with the DataFrame index
+                    df[f'wma_{period}'] = pd.Series(wma_values, index=df.index[period - 1:])
             
             # Moving Average Convergence Divergence (MACD)
             if len(df) >= 26:
