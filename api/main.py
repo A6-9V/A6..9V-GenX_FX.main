@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
+from contextlib import asynccontextmanager
 import sqlite3
 import os
 from datetime import datetime
@@ -9,10 +10,75 @@ import json
 import redis.asyncio as redis
 import logging
 
+# --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
+# To avoid frequent and slow disk I/O on the monitoring endpoint, we use a
+# Redis cache. This ensures that the cache is shared across all worker
+# processes, which is not the case with a simple in-memory global variable.
+# It also provides more robust caching with a configurable expiration time.
+#
+# The Redis connection details are retrieved from environment variables,
+# with sensible defaults for local development.
+# --------------------------------------------------------------------------
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
+
+# --- Set up basic logging ---
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+redis_client = None
+MONITORING_DASHBOARD_CACHE = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global redis_client, MONITORING_DASHBOARD_CACHE
+
+    # Redis initialization
+    try:
+        redis_client = await redis.from_url(
+            f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
+        )
+        await redis_client.ping()
+        logging.info("Successfully connected to Redis.")
+    except Exception as e:
+        logging.error(
+            f"Could not connect to Redis: {e}. Caching will be disabled."
+        )
+        redis_client = None
+
+    # Cache monitoring dashboard
+    try:
+        with open("monitoring_dashboard.html", "r") as f:
+            MONITORING_DASHBOARD_CACHE = f.read()
+        logging.info("Successfully cached monitoring_dashboard.html.")
+    except FileNotFoundError:
+        logging.error(
+            "monitoring_dashboard.html not found. "
+            "The /monitor endpoint will be disabled."
+        )
+        MONITORING_DASHBOARD_CACHE = (
+            "<h1>Error: Monitoring dashboard not found.</h1>"
+        )
+    except Exception as e:
+        logging.error(f"An error occurred while caching the dashboard: {e}")
+        MONITORING_DASHBOARD_CACHE = (
+            "<h1>Error: Could not load monitoring dashboard.</h1>"
+        )
+
+    yield
+
+    # Shutdown
+    if redis_client:
+        await redis_client.close()
+
 app = FastAPI(
     title="GenX-FX Trading Platform API",
     description="Trading platform with ML-powered predictions",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 # Add Trusted Host middleware
@@ -35,80 +101,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
-# To avoid frequent and slow disk I/O on the monitoring endpoint, we use a
-# Redis cache. This ensures that the cache is shared across all worker
-# processes, which is not the case with a simple in-memory global variable.
-# It also provides more robust caching with a configurable expiration time.
-#
-# The Redis connection details are retrieved from environment variables,
-# with sensible defaults for local development.
-# --------------------------------------------------------------------------
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
-
-# --- Set up basic logging ---
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-redis_client = None
-
-@app.on_event("startup")
-async def startup_event():
-    global redis_client
-    try:
-        redis_client = await redis.from_url(
-            f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
-        )
-        await redis_client.ping()
-        logging.info("Successfully connected to Redis.")
-    except Exception as e:
-        logging.error(
-            f"Could not connect to Redis: {e}. Caching will be disabled."
-        )
-        redis_client = None
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    if redis_client:
-        await redis_client.close()
-
-
-# --------------------------------------------------------------------------
-# Performance Optimization: In-Memory Cache for Static HTML
-# --------------------------------------------------------------------------
-# To avoid reading the same static HTML file from disk on every request,
-# we cache its content in a global variable on application startup. This
-# reduces disk I/O and improves the response time for the monitoring dashboard.
-# --------------------------------------------------------------------------
-MONITORING_DASHBOARD_CACHE = None
-
-
-@app.on_event("startup")
-def cache_monitoring_dashboard():
-    """
-    Loads the monitoring dashboard HTML into an in-memory cache at startup.
-    """
-    global MONITORING_DASHBOARD_CACHE
-    try:
-        with open("monitoring_dashboard.html", "r") as f:
-            MONITORING_DASHBOARD_CACHE = f.read()
-        logging.info("Successfully cached monitoring_dashboard.html.")
-    except FileNotFoundError:
-        logging.error(
-            "monitoring_dashboard.html not found. "
-            "The /monitor endpoint will be disabled."
-        )
-        MONITORING_DASHBOARD_CACHE = (
-            "<h1>Error: Monitoring dashboard not found.</h1>"
-        )
-    except Exception as e:
-        logging.error(f"An error occurred while caching the dashboard: {e}")
-        MONITORING_DASHBOARD_CACHE = (
-            "<h1>Error: Could not load monitoring dashboard.</h1>"
-        )
 
 
 # --------------------------------------------------------------------------

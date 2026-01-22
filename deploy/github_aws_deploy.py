@@ -129,7 +129,7 @@ class GitHubAWSDployer:
                 parts = remote_url.split('github.com/')[-1].split('/')
                 return parts[0]
             return 'unknown'
-        except:
+        except Exception:
             return 'unknown'
             
     def _get_repo_name(self) -> str:
@@ -142,7 +142,7 @@ class GitHubAWSDployer:
                 parts = remote_url.split('github.com/')[-1].split('/')
                 return parts[1].replace('.git', '')
             return 'unknown'
-        except:
+        except Exception:
             return 'unknown'
             
     def create_github_deployment(self) -> Optional[str]:
