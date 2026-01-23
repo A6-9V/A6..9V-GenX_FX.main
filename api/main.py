@@ -298,6 +298,22 @@ async def api_health_check():
     }
 
 
+def _create_prediction_dataframe(historical_data: list) -> pd.DataFrame:
+    """
+    Converts historical data to a pandas DataFrame and validates it.
+
+    This is a CPU-bound operation that should be run in a separate thread
+    to avoid blocking the asyncio event loop.
+    """
+    df = pd.DataFrame(historical_data)
+    # Basic data validation
+    required_columns = ['open', 'high', 'low', 'close', 'volume']
+    if not all(col in df.columns for col in required_columns):
+        # Raise ValueError to be caught in the endpoint
+        raise ValueError("Missing required columns in historical data.")
+    return df
+
+
 @app.post("/api/v1/predictions")
 async def get_predictions(request: Request):
     """
@@ -320,11 +336,14 @@ async def get_predictions(request: Request):
     if predictor:
         try:
             if "historical_data" in data and isinstance(data["historical_data"], list):
-                df = pd.DataFrame(data["historical_data"])
-                # Basic data validation
-                required_columns = ['open', 'high', 'low', 'close', 'volume']
-                if not all(col in df.columns for col in required_columns):
-                    raise HTTPException(status_code=400, detail="Missing required columns in historical data.")
+                # --- Performance: Offload CPU-bound DataFrame creation to a thread ---
+                # Creating a pandas DataFrame can be CPU-intensive for large datasets.
+                # Running this in a separate thread prevents blocking the main asyncio
+                # event loop, ensuring the server remains responsive.
+                try:
+                    df = await asyncio.to_thread(_create_prediction_dataframe, data["historical_data"])
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
                 # --- Performance: Run CPU-bound prediction in a separate thread ---
                 # The prediction model is CPU-intensive and would block the main
