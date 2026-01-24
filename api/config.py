@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     REDDIT_PASSWORD: Optional[str] = None
     REDDIT_USER_AGENT: str = "GenX-Trading-Bot/1.0"
 
+    # GitHub App Configuration
+    GITHUB_CLIENT_ID: Optional[str] = None
+    GITHUB_CLIENT_SECRET: Optional[str] = None
+    GITHUB_CALLBACK_URL: Optional[str] = None
+
     # Bybit Configuration
     BYBIT_API_KEY: Optional[str] = None
     BYBIT_API_SECRET: Optional[str] = None

@@ -203,6 +203,33 @@ setup_ai_secrets() {
     fi
 }
 
+# Setup GitHub App secrets
+setup_github_app_secrets() {
+    print_status "Setting up GitHub App secrets..."
+
+    echo ""
+    echo "📱 GitHub App Configuration"
+    echo "=========================="
+    echo "Please provide your GitHub App credentials:"
+    echo ""
+    echo "1. Go to: https://github.com/settings/apps"
+    echo "2. Select your App"
+    echo "3. Copy Client ID and generate a Client Secret"
+    echo ""
+
+    read -p "GitHub Client ID: " GITHUB_CLIENT_ID
+    read -s -p "GitHub Client Secret: " GITHUB_CLIENT_SECRET
+    echo ""
+
+    if [ -n "$GITHUB_CLIENT_ID" ] && [ -n "$GITHUB_CLIENT_SECRET" ]; then
+        gh secret set GITHUB_CLIENT_ID --body "$GITHUB_CLIENT_ID"
+        gh secret set GITHUB_CLIENT_SECRET --body "$GITHUB_CLIENT_SECRET"
+        print_success "GitHub App secrets configured"
+    else
+        print_warning "GitHub App secrets not configured (skipped)"
+    fi
+}
+
 # Setup database secrets
 setup_database_secrets() {
     print_status "Setting up database secrets..."
@@ -274,6 +301,10 @@ create_secrets_summary() {
 - `GEMINI_API_KEY` - Google Gemini API key
 - `OPENAI_API_KEY` - OpenAI API key
 
+### GitHub App
+- `GITHUB_CLIENT_ID` - GitHub App Client ID
+- `GITHUB_CLIENT_SECRET` - GitHub App Client Secret
+
 ### Database
 - `POSTGRES_PASSWORD` - PostgreSQL database password
 - `REDIS_PASSWORD` - Redis cache password
@@ -334,6 +365,7 @@ main() {
     setup_aws_secrets
     setup_trading_secrets
     setup_ai_secrets
+    setup_github_app_secrets
     setup_database_secrets
     setup_github_variables
     
