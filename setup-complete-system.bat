@@ -14,7 +14,12 @@ if errorlevel 1 (
 )
 
 echo [1/8] Installing Python dependencies...
-pip install requests fastapi uvicorn google-generativeai
+if exist "requirements.txt" (
+    pip install -r requirements.txt
+) else (
+    echo WARNING: requirements.txt not found. Installing core packages...
+    pip install requests fastapi uvicorn google-generativeai
+)
 if errorlevel 1 (
     echo ERROR: Failed to install Python dependencies
     pause
@@ -91,7 +96,17 @@ echo chcp 65001 >nul >> start-api-server.bat
 echo python -m uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload >> start-api-server.bat
 echo pause >> start-api-server.bat
 
-echo [8/8] Testing system configuration...
+echo [8/8] Building Frontend (if Node.js is available)...
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    echo Node.js detected. Installing and building frontend...
+    call npm install
+    call npm run build
+) else (
+    echo WARNING: Node.js not found. Frontend build skipped.
+)
+
+echo [9/9] Testing system configuration...
 echo Testing Python installation...
 python --version
 if errorlevel 1 (

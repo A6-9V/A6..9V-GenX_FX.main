@@ -168,7 +168,10 @@ def get_db():
     """
     FastAPI dependency to get a database connection for each request.
     """
-    db = sqlite3.connect("genxdb_fx.db")
+    # check_same_thread=False is needed because FastAPI runs async path operations
+    # in the main event loop, but synchronous dependencies (like this one)
+    # might run in a separate threadpool.
+    db = sqlite3.connect("genxdb_fx.db", check_same_thread=False)
     db.row_factory = sqlite3.Row
     try:
         yield db
