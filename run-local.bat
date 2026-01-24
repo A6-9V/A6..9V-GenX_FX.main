@@ -6,7 +6,14 @@ start "GenX-FX Backend" /min python api/main.py
 timeout /t 3 >nul
 
 echo [2/3] Starting Frontend Server...
-start "GenX-FX Frontend" /min npx serve dist -p 3000
+if exist "client\dist" (
+    start "GenX-FX Frontend" /min npx serve client/dist -p 3000
+) else (
+    echo "client\dist" not found. Running build...
+    call npm install
+    call npm run build
+    start "GenX-FX Frontend" /min npx serve client/dist -p 3000
+)
 timeout /t 3 >nul
 
 echo [3/3] Opening Browser...
