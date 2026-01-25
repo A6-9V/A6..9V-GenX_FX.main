@@ -13,3 +13,7 @@
 ## 2024-05-26 - Action Feedback Latency
 **Learning:** In critical financial actions (like payments), lack of immediate visual feedback during network latency causes anxiety and double-submissions. A simple spinner transforms "did it work?" into "it's working."
 **Action:** Always include a disabled loading state with a spinner for primary form actions.
+
+## 2024-05-27 - Mobile Form Usability
+**Learning:** Standard text inputs for credit card details are frustrating on mobile devices and password managers. Users struggle with keyboard switching and lack of autofill.
+**Action:** Use `inputMode="numeric"` for numerical data (card numbers, dates, CVC) and explicit `autoComplete` attributes (cc-number, cc-exp, cc-csc) to enable browser assistance and correct mobile keypads.
