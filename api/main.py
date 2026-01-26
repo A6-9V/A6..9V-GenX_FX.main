@@ -342,35 +342,35 @@ async def get_predictions(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # Basic validation
+    # --- Performance Optimization: Fail-fast input validation ---
+    # To avoid unnecessary processing, we immediately validate the incoming
+    # payload. If the required 'historical_data' field is missing or has an
+    # invalid format, we return a 400 Bad Request error right away. This is
+    # more efficient than proceeding with a default 200 OK response.
     if "historical_data" not in data or not isinstance(data["historical_data"], list):
-        pass
+        raise HTTPException(
+            status_code=400,
+            detail="Request body must include 'historical_data' as a list.",
+        )
 
     if predictor:
         try:
-            if "historical_data" in data and isinstance(data["historical_data"], list):
-                # --- Performance: Offload CPU-bound DataFrame creation to a thread ---
-                # Creating a pandas DataFrame can be CPU-intensive for large datasets.
-                # Running this in a separate thread prevents blocking the main asyncio
-                # event loop, ensuring the server remains responsive.
-                try:
-                    df = await asyncio.to_thread(_create_prediction_dataframe, data["historical_data"])
-                except ValueError as e:
-                    raise HTTPException(status_code=400, detail=str(e))
+            # --- Performance: Offload CPU-bound DataFrame creation to a thread ---
+            # Creating a pandas DataFrame can be CPU-intensive for large datasets.
+            # Running this in a separate thread prevents blocking the main asyncio
+            # event loop, ensuring the server remains responsive.
+            try:
+                df = await asyncio.to_thread(_create_prediction_dataframe, data["historical_data"])
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
 
-                # --- Performance: Run CPU-bound prediction in a separate thread ---
-                # The prediction model is CPU-intensive and would block the main
-                # asyncio event loop. By using asyncio.to_thread, we run it in a
-                # separate thread, allowing the server to remain responsive to
-                # other requests.
-                prediction = await asyncio.to_thread(predictor.predict, df)
-                return prediction
-            else:
-                 return {
-                    "predictions": [],
-                    "status": "ready (no data provided)",
-                    "timestamp": datetime.now().isoformat(),
-                }
+            # --- Performance: Run CPU-bound prediction in a separate thread ---
+            # The prediction model is CPU-intensive and would block the main
+            # asyncio event loop. By using asyncio.to_thread, we run it in a
+            # separate thread, allowing the server to remain responsive to
+            # other requests.
+            prediction = await asyncio.to_thread(predictor.predict, df)
+            return prediction
         except Exception as e:
             logging.error(f"Prediction failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")

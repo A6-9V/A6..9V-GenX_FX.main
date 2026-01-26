@@ -262,3 +262,26 @@ async def test_trading_pairs_caching(mock_redis_client):
 
     # 7. Cleanup
     app.dependency_overrides.clear()
+
+
+def test_predictions_invalid_payload():
+    """
+    Test that the /api/v1/predictions endpoint returns a 400 error
+    for payloads that are missing 'historical_data' or have an invalid format.
+    """
+    # Test case 1: Missing 'historical_data' key
+    invalid_payload_1 = {"other_key": "some_value"}
+    response_1 = client.post("/api/v1/predictions", json=invalid_payload_1)
+    assert response_1.status_code == 400
+    assert "Request body must include 'historical_data' as a list." in response_1.json()["detail"]
+
+    # Test case 2: 'historical_data' is not a list
+    invalid_payload_2 = {"historical_data": "not_a_list"}
+    response_2 = client.post("/api/v1/predictions", json=invalid_payload_2)
+    assert response_2.status_code == 400
+    assert "Request body must include 'historical_data' as a list." in response_2.json()["detail"]
+
+    # Test case 3: Empty JSON payload
+    response_3 = client.post("/api/v1/predictions", json={})
+    assert response_3.status_code == 400
+    assert "Request body must include 'historical_data' as a list." in response_3.json()["detail"]
