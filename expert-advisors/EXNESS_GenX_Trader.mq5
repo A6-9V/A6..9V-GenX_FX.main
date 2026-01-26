@@ -26,6 +26,7 @@ input double TakeProfitPercent = 0.04;
 input int    MaxPositions = 3;
 input bool   UseTrailingStop = true;
 input double TrailingDistance = 50;
+input bool   TradeOnWeekends = false;
 
 input group "=== Strategy Parameters ==="
 input int    MA_Fast_Period = 10;
@@ -111,6 +112,13 @@ void OnTick() {
     // Check risk management
     if (!CheckRiskManagement()) {
         return;
+    }
+
+    // Check time filter (week day only)
+    if (!TradeOnWeekends) {
+        MqlDateTime tm;
+        TimeToStruct(TimeCurrent(), tm);
+        if (tm.day_of_week == 0 || tm.day_of_week == 6) return;
     }
 
     // Get Signal

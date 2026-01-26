@@ -222,7 +222,9 @@ def insert_initial_data(cursor):
         ('NZD/USD', 'NZD', 'USD'),
         ('EUR/GBP', 'EUR', 'GBP'),
         ('EUR/JPY', 'EUR', 'JPY'),
-        ('GBP/JPY', 'GBP', 'JPY')
+        ('GBP/JPY', 'GBP', 'JPY'),
+        ('BTC/USD', 'BTC', 'USD'),
+        ('BTC/XAU', 'BTC', 'XAU')
         """
     ]
     
