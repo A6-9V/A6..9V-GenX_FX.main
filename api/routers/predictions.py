@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import logging
 import json
+from fastapi.encoders import jsonable_encoder
 
 from ..main import redis_client
 
@@ -31,8 +32,9 @@ async def create_prediction(
     """
     Generates an AI-powered market prediction for a given symbol.
 
-    This endpoint retrieves real-time market data, uses the machine learning
-    service to generate a prediction, and logs the prediction in a background task.
+    This endpoint is optimized with a short-lived Redis cache (10 seconds)
+    to handle bursts of requests for the same symbol without re-running the
+    expensive prediction model.
 
     Args:
         request (PredictionRequest): The request body containing the symbol and other
@@ -47,6 +49,16 @@ async def create_prediction(
         HTTPException: If data for the symbol cannot be found or if the
                        prediction process fails.
     """
+    # --- Performance Optimization: Check for cached prediction ---
+    cache_key = f"prediction:{request.symbol}:{request.use_ensemble}"
+    if redis_client:
+        try:
+            cached_result = await redis_client.get(cache_key)
+            if cached_result:
+                return PredictionResponse(**json.loads(cached_result))
+        except Exception as e:
+            logger.error(f"Redis cache read error: {e}. Proceeding without cache.")
+
     try:
         # Get real-time market data
         market_data = await data_service.get_realtime_data(request.symbol)
@@ -67,7 +79,7 @@ async def create_prediction(
             ml_service.log_prediction, request.symbol, prediction_result
         )
 
-        return PredictionResponse(
+        response = PredictionResponse(
             symbol=request.symbol,
             prediction=SignalType(prediction_result["signal"]),
             confidence=prediction_result["confidence"],
@@ -75,6 +87,18 @@ async def create_prediction(
             features_used=prediction_result["features"],
             model_version=prediction_result["model_version"],
         )
+
+        # --- Performance Optimization: Store result in cache ---
+        if redis_client:
+            try:
+                # Use jsonable_encoder to ensure Pydantic model is JSON-serializable
+                await redis_client.setex(
+                    cache_key, 10, json.dumps(jsonable_encoder(response))
+                )
+            except Exception as e:
+                logger.error(f"Redis cache write error: {e}")
+
+        return response
 
     except Exception as e:
         logger.error(f"Prediction error for {request.symbol}: {str(e)}")
