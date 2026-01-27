@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict, validator, Field
+from pydantic import ConfigDict, validator, Field, model_validator
 from typing import Optional, Literal
 import os
 from pathlib import Path
@@ -50,12 +50,19 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # Exness Broker Configuration
-    EXNESS_LOGIN: str = Field(..., description="Exness account login")
-    EXNESS_PASSWORD: str = Field(..., description="Exness account password")
-    EXNESS_SERVER: str = Field(..., description="Exness server (e.g., Exness-MT5Trial8)")
-    EXNESS_ACCOUNT_TYPE: Literal["demo", "live"] = "demo"
-    EXNESS_TERMINAL: Literal["MT4", "MT5"] = "MT5"
+    EXNESS_LOGIN: Optional[str] = Field(None, description="Exness account login")
+    EXNESS_PASSWORD: Optional[str] = Field(None, description="Exness account password")
+    EXNESS_SERVER: Optional[str] = Field(None, description="Exness server (e.g., Exness-MT5Trial8)")
+    EXNESS_ACCOUNT_TYPE: Optional[Literal["demo", "live"]] = "demo"
+    EXNESS_TERMINAL: Optional[Literal["MT4", "MT5"]] = "MT5"
     
+    # Capital.com Broker Configuration
+    CAPITAL_LOGIN: Optional[str] = Field(None, description="Capital.com account login")
+    CAPITAL_PASSWORD: Optional[str] = Field(None, description="Capital.com account password")
+    CAPITAL_SERVER: Optional[str] = Field(None, description="Capital.com server")
+    CAPITAL_ACCOUNT_TYPE: Optional[Literal["demo", "live"]] = "demo"
+    CAPITAL_TERMINAL: Optional[Literal["MT4", "MT5"]] = "MT5"
+
     # Trading Configuration
     MT5_SYMBOL: str = "XAUUSD"
     MT5_TIMEFRAME: str = "TIMEFRAME_M15"
@@ -141,7 +148,7 @@ class Settings(BaseSettings):
     MAX_WEBSOCKET_RETRIES: int = 10
     
     @validator("EXNESS_LOGIN")
-    def validate_login(cls, v: str) -> str:
+    def validate_login(cls, v: Optional[str]) -> Optional[str]:
         """
         Validates that the Exness login is at least 6 characters long.
 
@@ -154,12 +161,12 @@ class Settings(BaseSettings):
         Raises:
             ValueError: If the login string is less than 6 characters.
         """
-        if not v or len(v) < 6:
+        if v is not None and len(v) < 6:
             raise ValueError("Login must be at least 6 characters")
         return v
     
     @validator("EXNESS_PASSWORD")
-    def validate_password(cls, v: str) -> str:
+    def validate_password(cls, v: Optional[str]) -> Optional[str]:
         """
         Validates that the Exness password is at least 8 characters long.
 
@@ -172,7 +179,38 @@ class Settings(BaseSettings):
         Raises:
             ValueError: If the password string is less than 8 characters.
         """
-        if not v or len(v) < 8:
+        if v is not None and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @model_validator(mode='after')
+    def check_broker_configuration(self) -> 'Settings':
+        """
+        Ensures that at least one broker (Exness or Capital.com) is correctly configured.
+        """
+        exness_configured = self.EXNESS_LOGIN and self.EXNESS_PASSWORD
+        capital_configured = self.CAPITAL_LOGIN and self.CAPITAL_PASSWORD
+
+        if not exness_configured and not capital_configured:
+            raise ValueError("At least one broker (Exness or Capital.com) must be configured with login and password.")
+
+        return self
+
+    @validator("CAPITAL_LOGIN")
+    def validate_capital_login(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validates that the Capital.com login is at least 6 characters long if provided.
+        """
+        if v is not None and len(v) < 6:
+            raise ValueError("Login must be at least 6 characters")
+        return v
+
+    @validator("CAPITAL_PASSWORD")
+    def validate_capital_password(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validates that the Capital.com password is at least 8 characters long if provided.
+        """
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
     
