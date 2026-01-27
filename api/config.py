@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     EXNESS_ACCOUNT_TYPE: Literal["demo", "live"] = "demo"
     EXNESS_TERMINAL: Literal["MT4", "MT5"] = "MT5"
     
+    # Captain Broker Configuration
+    CAPTAIN_LOGIN: Optional[str] = Field(None, description="Captain account login")
+    CAPTAIN_PASSWORD: Optional[str] = Field(None, description="Captain account password")
+    CAPTAIN_SERVER: Optional[str] = Field(None, description="Captain server")
+    CAPTAIN_ACCOUNT_TYPE: Optional[Literal["demo", "live"]] = "demo"
+    CAPTAIN_TERMINAL: Optional[Literal["MT4", "MT5"]] = "MT5"
+
     # Trading Configuration
     MT5_SYMBOL: str = "XAUUSD"
     MT5_TIMEFRAME: str = "TIMEFRAME_M15"
@@ -173,6 +180,24 @@ class Settings(BaseSettings):
             ValueError: If the password string is less than 8 characters.
         """
         if not v or len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @validator("CAPTAIN_LOGIN")
+    def validate_captain_login(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validates that the Captain login is at least 6 characters long if provided.
+        """
+        if v is not None and len(v) < 6:
+            raise ValueError("Login must be at least 6 characters")
+        return v
+
+    @validator("CAPTAIN_PASSWORD")
+    def validate_captain_password(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validates that the Captain password is at least 8 characters long if provided.
+        """
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
     
