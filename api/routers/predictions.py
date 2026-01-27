@@ -149,10 +149,12 @@ async def batch_predictions(
                 )
             )
 
-    # Report errors for symbols where data could not be fetched
-    for symbol in symbol_list:
-        if symbol not in valid_symbols:
-            errors.append({"symbol": symbol, "error": "Market data not found"})
+    # --- Performance Optimization: O(N) Set Difference ---
+    # Use a set difference to find missing symbols in O(N) time,
+    # which is much faster than an O(N*M) list-based lookup.
+    missing_symbols = set(symbol_list) - set(valid_symbols)
+    for symbol in missing_symbols:
+        errors.append({"symbol": symbol, "error": "Market data not found"})
 
     return {
         "predictions": predictions,
