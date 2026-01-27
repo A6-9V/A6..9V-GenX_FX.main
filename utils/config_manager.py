@@ -40,7 +40,7 @@ class ConfigManager:
     def get_default_config(self) -> Dict[str, Any]:
         """Get default configuration"""
         return {
-            "broker": "exness",  # Options: "exness", "captain"
+            "broker": "exness",  # Options: "exness", "capital"
             "symbols": ["EURUSD", "GBPUSD", "USDJPY"],
             "timeframes": ["H1", "H4", "D1"],
             "risk_percentage": 2.0,
