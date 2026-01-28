@@ -1,5 +1,6 @@
 import sqlite3
 
+
 def setup_database():
     """
     Sets up the SQLite database by creating tables and seeding initial data.
@@ -32,17 +33,26 @@ def setup_database():
     # Seed initial data (if tables are empty)
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (username, email) VALUES (?, ?)", ("testuser", "test@example.com"))
+        cursor.execute(
+            "INSERT INTO users (username, email) VALUES (?, ?)",
+            ("testuser", "test@example.com"),
+        )
 
     cursor.execute("SELECT COUNT(*) FROM trading_pairs")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO trading_pairs (symbol, base_currency, quote_currency) VALUES (?, ?, ?)", ("EURUSD", "EUR", "USD"))
-        cursor.execute("INSERT INTO trading_pairs (symbol, base_currency, quote_currency) VALUES (?, ?, ?)", ("GBPUSD", "GBP", "USD"))
-
+        cursor.execute(
+            "INSERT INTO trading_pairs (symbol, base_currency, quote_currency) VALUES (?, ?, ?)",
+            ("EURUSD", "EUR", "USD"),
+        )
+        cursor.execute(
+            "INSERT INTO trading_pairs (symbol, base_currency, quote_currency) VALUES (?, ?, ?)",
+            ("GBPUSD", "GBP", "USD"),
+        )
 
     conn.commit()
     conn.close()
     print("Database setup complete.")
+
 
 if __name__ == "__main__":
     setup_database()

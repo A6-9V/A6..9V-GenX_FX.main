@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 # Check if ai_models module exists and can be imported
 try:
     from ai_models.ensemble_predictor import EnsemblePredictor
+
     has_ai_models = True
 except ImportError:
     logging.warning("Could not import ai_models. Predictions will be disabled.")
@@ -27,6 +28,7 @@ redis_client = None
 predictor = None
 MONITORING_DASHBOARD_CACHE = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global redis_client, predictor, MONITORING_DASHBOARD_CACHE
@@ -34,14 +36,14 @@ async def lifespan(app: FastAPI):
     # --- Redis Setup ---
     try:
         redis_client = await redis.from_url(
-            f"redis://{REDIS_HOST}:{REDIS_PORT}", encoding="utf-8", decode_responses=True
+            f"redis://{REDIS_HOST}:{REDIS_PORT}",
+            encoding="utf-8",
+            decode_responses=True,
         )
         await redis_client.ping()
         logging.info("Successfully connected to Redis.")
     except Exception as e:
-        logging.error(
-            f"Could not connect to Redis: {e}. Caching will be disabled."
-        )
+        logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
         redis_client = None
 
     # --- AI Predictor Setup ---
@@ -79,9 +81,7 @@ async def lifespan(app: FastAPI):
             "monitoring_dashboard.html not found. "
             "The /monitor endpoint will be disabled."
         )
-        MONITORING_DASHBOARD_CACHE = (
-            "<h1>Error: Monitoring dashboard not found.</h1>"
-        )
+        MONITORING_DASHBOARD_CACHE = "<h1>Error: Monitoring dashboard not found.</h1>"
     except Exception as e:
         logging.error(f"An error occurred while caching the dashboard: {e}")
         MONITORING_DASHBOARD_CACHE = (
@@ -94,24 +94,27 @@ async def lifespan(app: FastAPI):
     if redis_client:
         await redis_client.close()
 
+
 app = FastAPI(
     title="GenX-FX Trading Platform API",
     description="Trading platform with ML-powered predictions",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add Trusted Host middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "genx-fx.com", "testserver"]
+    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "genx-fx.com", "testserver"],
 )
+
 
 class PaymentMethod(BaseModel):
     cardholderName: str
     cardNumber: str
     expiryDate: str
     cvc: str
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -120,7 +123,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
-        "https://genx-fx.com"
+        "https://genx-fx.com",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -175,6 +178,7 @@ def get_db():
     finally:
         db.close()
 
+
 def is_safe_string(input_string):
     """
     A simple function to check for potentially malicious characters.
@@ -183,6 +187,7 @@ def is_safe_string(input_string):
     if re.search(r"[;\"'<>]", input_string):
         return False
     return True
+
 
 @app.get("/")
 async def root():
@@ -225,6 +230,7 @@ async def root():
 
     return response
 
+
 @app.get("/health")
 async def health_check(db: sqlite3.Connection = Depends(get_db)):
     """
@@ -245,9 +251,7 @@ async def health_check(db: sqlite3.Connection = Depends(get_db)):
             if cached_health:
                 return json.loads(cached_health)
         except Exception as e:
-            logging.error(
-                f"Redis connection error: {e}. Performing live check."
-            )
+            logging.error(f"Redis connection error: {e}. Performing live check.")
 
     try:
         # --- Use the DB connection from the dependency ---
@@ -280,6 +284,7 @@ async def health_check(db: sqlite3.Connection = Depends(get_db)):
             "services": {"ml_service": "inactive", "data_service": "inactive"},
         }
 
+
 @app.get("/api/v1/health")
 async def api_health_check():
     """
@@ -306,7 +311,7 @@ def _create_prediction_dataframe(historical_data: list) -> pd.DataFrame:
     """
     df = pd.DataFrame(historical_data)
     # Basic data validation
-    required_columns = ['open', 'high', 'low', 'close', 'volume']
+    required_columns = ["open", "high", "low", "close", "volume"]
     if not all(col in df.columns for col in required_columns):
         # Raise ValueError to be caught in the endpoint
         raise ValueError("Missing required columns in historical data.")
@@ -340,7 +345,9 @@ async def get_predictions(request: Request):
                 # Running this in a separate thread prevents blocking the main asyncio
                 # event loop, ensuring the server remains responsive.
                 try:
-                    df = await asyncio.to_thread(_create_prediction_dataframe, data["historical_data"])
+                    df = await asyncio.to_thread(
+                        _create_prediction_dataframe, data["historical_data"]
+                    )
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))
 
@@ -352,7 +359,7 @@ async def get_predictions(request: Request):
                 prediction = await asyncio.to_thread(predictor.predict, df)
                 return prediction
             else:
-                 return {
+                return {
                     "predictions": [],
                     "status": "ready (no data provided)",
                     "timestamp": datetime.now().isoformat(),
@@ -370,8 +377,7 @@ async def get_predictions(request: Request):
 
 @app.get("/trading-pairs")
 async def get_trading_pairs(
-    symbol: str | None = Query(default=None),
-    db: sqlite3.Connection = Depends(get_db)
+    symbol: str | None = Query(default=None), db: sqlite3.Connection = Depends(get_db)
 ):
     """
     Retrieves a list of active trading pairs from the database.
@@ -393,9 +399,7 @@ async def get_trading_pairs(
             if cached_pairs:
                 return json.loads(cached_pairs)
         except Exception as e:
-            logging.error(
-                f"Redis connection error: {e}. Performing live query."
-            )
+            logging.error(f"Redis connection error: {e}. Performing live query.")
 
     try:
         # --- Use the DB connection from the dependency ---
@@ -405,7 +409,7 @@ async def get_trading_pairs(
             cursor.execute(
                 "SELECT symbol, base_currency, quote_currency "
                 "FROM trading_pairs WHERE is_active = 1 AND symbol = ?",
-                (symbol,)
+                (symbol,),
             )
         else:
             cursor.execute(
@@ -564,9 +568,7 @@ async def get_monitoring_data():
               error message if the metrics are not available in the cache.
     """
     if not redis_client:
-        return {
-            "error": "Redis is not connected; monitoring data is unavailable."
-        }
+        return {"error": "Redis is not connected; monitoring data is unavailable."}
 
     try:
         cached_metrics = await redis_client.get("system_metrics")
@@ -621,6 +623,7 @@ async def add_payment_method(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 @app.post("/api/v1/data")
 async def handle_data(data: dict):
     """
@@ -639,10 +642,12 @@ async def handle_data(data: dict):
     # In a real application, you would process the data here
     return {"status": "success", "data_received": data}
 
+
 # Serve the frontend (Place this after all API routes)
 if os.path.exists("client/dist"):
     app.mount("/", StaticFiles(directory="client/dist", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8080)
