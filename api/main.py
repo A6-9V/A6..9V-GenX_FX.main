@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -108,6 +109,18 @@ app.add_middleware(
     allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "genx-fx.com", "testserver"],
 )
 
+# --------------------------------------------------------------------------
+# Performance Optimization: Add GZip Compression Middleware
+# --------------------------------------------------------------------------
+# To reduce the size of the response bodies and improve network performance,
+# we add GZipMiddleware. This middleware automatically compresses responses
+# for clients that support gzip encoding, which is a standard feature in
+# modern browsers and HTTP clients. A minimum size of 1000 bytes is set to
+# avoid the overhead of compressing very small responses where compression
+# might not be beneficial.
+# --------------------------------------------------------------------------
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 
 class PaymentMethod(BaseModel):
     cardholderName: str
@@ -121,6 +134,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:5000",
         "http://localhost:5173",
         "http://localhost:8080",
         "https://genx-fx.com",
@@ -333,9 +347,15 @@ async def get_predictions(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # Basic validation
+    # --- Performance Optimization: Fail-fast input validation ---
+    # To avoid unnecessary processing for invalid requests, we immediately
+    # check if the 'historical_data' is provided and is a list. If not,
+    # we raise a 422 Unprocessable Entity error. This fail-fast approach
+    # conserves server resources and provides clearer API feedback.
     if "historical_data" not in data or not isinstance(data["historical_data"], list):
-        pass
+        raise HTTPException(
+            status_code=422, detail="'historical_data' is required and must be a list."
+        )
 
     if predictor:
         try:
@@ -650,4 +670,4 @@ if os.path.exists("client/dist"):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

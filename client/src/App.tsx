@@ -10,7 +10,7 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchHealthData = useCallback(async () => {
-    const API = 'http://localhost:8081';
+    const API = import.meta.env.VITE_API_URL || '';
     setIsLoading(true);
     try {
       /**
@@ -141,6 +141,12 @@ const Home = () => {
 function App() {
   return (
     <Router>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        Skip to main content
+      </a>
       <div className="min-h-screen bg-gray-100 p-8">
         <nav className="bg-white rounded-lg shadow-md p-4 mb-8">
           <ul className="flex space-x-4">
@@ -149,9 +155,11 @@ function App() {
                 to="/"
                 end
                 className={({ isActive }) =>
-                  isActive
-                    ? 'text-blue-700 font-bold underline decoration-2 underline-offset-4'
-                    : 'text-gray-600 hover:text-blue-700 hover:underline transition-colors'
+                  `px-3 py-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors ${
+                    isActive
+                      ? 'text-blue-700 font-bold underline decoration-2 underline-offset-4'
+                      : 'text-gray-600 hover:text-blue-700 hover:underline'
+                  }`
                 }
               >
                 Home
@@ -161,9 +169,11 @@ function App() {
               <NavLink
                 to="/billing"
                 className={({ isActive }) =>
-                  isActive
-                    ? 'text-blue-700 font-bold underline decoration-2 underline-offset-4'
-                    : 'text-gray-600 hover:text-blue-700 hover:underline transition-colors'
+                  `px-3 py-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors ${
+                    isActive
+                      ? 'text-blue-700 font-bold underline decoration-2 underline-offset-4'
+                      : 'text-gray-600 hover:text-blue-700 hover:underline'
+                  }`
                 }
               >
                 Billing
@@ -181,10 +191,12 @@ function App() {
             </li>
           </ul>
         </nav>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/billing" element={<Billing />} />
-        </Routes>
+        <main id="main-content" tabIndex={-1} className="focus:outline-none">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/billing" element={<Billing />} />
+          </Routes>
+        </main>
       </div>
     </Router>
   )

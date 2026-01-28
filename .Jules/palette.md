@@ -13,3 +13,15 @@
 ## 2024-05-26 - Action Feedback Latency
 **Learning:** In critical financial actions (like payments), lack of immediate visual feedback during network latency causes anxiety and double-submissions. A simple spinner transforms "did it work?" into "it's working."
 **Action:** Always include a disabled loading state with a spinner for primary form actions.
+
+## 2024-05-27 - Mobile Form Usability
+**Learning:** Standard text inputs for credit card details are frustrating on mobile devices and password managers. Users struggle with keyboard switching and lack of autofill.
+**Action:** Use `inputMode="numeric"` for numerical data (card numbers, dates, CVC) and explicit `autoComplete` attributes (cc-number, cc-exp, cc-csc) to enable browser assistance and correct mobile keypads.
+
+## 2024-05-28 - Skip Links for Keyboard Navigation
+**Learning:** High-level navigation structures often block keyboard users from reaching main content quickly. A hidden "Skip to main content" link is essential for accessibility but often forgotten because it's invisible to mouse users.
+**Action:** Always include a skip link as the first focusable element in the application root, pointing to a `<main>` landmark wrapping the primary route content.
+
+## 2024-05-29 - Navigation Focus Visibility
+**Learning:** Default browser focus outlines on navigation links are often suppressed or visually inconsistent with the design system, leading to a "lost" feeling for keyboard users navigating main menus.
+**Action:** Explicitly implement `focus-visible` styles on navigation links that match the button focus styles (ring, offset) to create a cohesive and accessible keyboard navigation experience.
