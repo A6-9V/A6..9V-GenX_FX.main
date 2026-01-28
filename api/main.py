@@ -158,6 +158,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:8080",
         "https://genx-fx.com",
+        "https://a-333-time-3-2--genxav69.replit.app",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
