@@ -349,9 +349,16 @@ async def get_predictions(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # Basic validation
+    # --- Performance Optimization: Fail-fast input validation ---
+    # To avoid unnecessary processing for invalid requests, we immediately
+    # check if the 'historical_data' is provided and is a list. If not,
+    # we raise a 422 Unprocessable Entity error. This fail-fast approach
+    # conserves server resources and provides clearer API feedback.
     if "historical_data" not in data or not isinstance(data["historical_data"], list):
-        pass
+        raise HTTPException(
+            status_code=422,
+            detail="'historical_data' is required and must be a list."
+        )
 
     if predictor:
         try:
