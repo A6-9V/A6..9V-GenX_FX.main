@@ -1,6 +1,9 @@
 from cryptography.fernet import Fernet
 from api.config import settings
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 class EncryptionManager:
     """
@@ -22,10 +25,7 @@ class EncryptionManager:
             try:
                 self.cipher_suite = Fernet(self.key)
             except Exception as e:
-                # Log error or handle invalid key
-                # Using print here as logging might be configured later or elsewhere
-                # In a real app, use the configured logger
-                print(f"Error initializing encryption key: {e}")
+                logger.error(f"Error initializing encryption key: {e}")
 
     def encrypt(self, data: str) -> str:
         """
