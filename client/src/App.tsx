@@ -169,6 +169,16 @@ function App() {
                 Billing
               </NavLink>
             </li>
+            <li>
+              <a
+                href="https://exness.okta.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 hover:text-blue-700 hover:underline transition-colors"
+              >
+                Exness Login
+              </a>
+            </li>
           </ul>
         </nav>
         <Routes>

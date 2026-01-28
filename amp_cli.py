@@ -543,6 +543,20 @@ def run():
         console.print("❌ [bold red]AMP Job Runner not found. Please ensure amp_job_runner.py exists.")
 
 @app.command()
+def exness_okta():
+    """Access Exness Okta authentication portal"""
+    console.print(Panel(
+        "[bold cyan]Exness Okta Authentication[/bold cyan]\n\n"
+        "Please sign in to the Exness Okta portal to access your account:\n"
+        "[bold blue]https://exness.okta.com[/bold blue]\n\n"
+        "1. Use your LDAP username (not email)\n"
+        "2. Complete the sign-in process\n"
+        "3. Retrieve your account credentials for the .env file",
+        title="[bold blue]Authentication Required",
+        border_style="blue"
+    ))
+
+@app.command()
 def auth(
     token: Optional[str] = typer.Option(None, "--token", help="Authentication token"),
     logout: bool = typer.Option(False, "--logout", help="Logout current user"),

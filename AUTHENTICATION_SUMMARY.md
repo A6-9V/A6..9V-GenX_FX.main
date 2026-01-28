@@ -53,6 +53,11 @@ amp auth --logout
 - Authentication headers generation
 - User information retrieval
 
+### **Exness Okta Integration**
+- SSO Portal: [https://exness.okta.com](https://exness.okta.com)
+- CLI command: `amp_cli.py exness-okta`
+- Frontend: Integrated login link in navigation
+
 ## 🔧 **Integration Features**
 
 ### **✅ Automatic Authentication**
@@ -160,6 +165,7 @@ else:
 ✅ **User authenticated: 01K0R2TFXNAWZES7ATM3D84JZW**
 ✅ **Session active until 2025-07-27T04:38:19**
 ✅ **Authentication module integrated with AMP CLI**
+✅ **Exness Okta Portal integration verified**
 ✅ **Job execution completed with authentication**
 ✅ **Secure session management implemented**
 
