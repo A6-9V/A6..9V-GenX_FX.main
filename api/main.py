@@ -25,14 +25,23 @@ except ImportError:
     logging.warning("Could not import ai_models. Predictions will be disabled.")
     has_ai_models = False
 
+# Check if ScalpingService exists and can be imported
+try:
+    from api.services.scalping_service import ScalpingService
+    has_scalping_service = True
+except ImportError:
+    logging.warning("Could not import ScalpingService.")
+    has_scalping_service = False
+
 redis_client = None
 predictor = None
+scalping_service = None
 MONITORING_DASHBOARD_CACHE = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client, predictor, MONITORING_DASHBOARD_CACHE
+    global redis_client, predictor, MONITORING_DASHBOARD_CACHE, scalping_service
 
     # --- Redis Setup ---
     try:
@@ -55,6 +64,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logging.error(f"Failed to initialize EnsemblePredictor: {e}")
             predictor = None
+
+    # --- Scalping Service Setup ---
+    if has_scalping_service:
+        try:
+            scalping_service = ScalpingService()
+            logging.info("ScalpingService initialized.")
+        except Exception as e:
+            logging.error(f"Failed to initialize ScalpingService: {e}")
+            scalping_service = None
 
     # --- Database Setup (Billing) ---
     try:
@@ -396,6 +414,52 @@ async def get_predictions(request: Request):
             "status": "predictor not initialized",
             "timestamp": datetime.now().isoformat(),
         }
+
+
+@app.post("/api/v1/scalping/signals")
+async def get_scalping_signals(request: Request):
+    """
+    Endpoint to get scalping signals for 5m, 15m, and 30m timeframes.
+
+    Accepts historical data and timeframe parameters.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    if not scalping_service:
+        return {
+            "signal": "NEUTRAL",
+            "status": "scalping service not initialized",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    historical_data = data.get("historical_data")
+    timeframe = data.get("timeframe", "5m")
+
+    # Input validation
+    if not historical_data or not isinstance(historical_data, list):
+        raise HTTPException(
+            status_code=422,
+            detail="'historical_data' is required and must be a list."
+        )
+
+    if timeframe not in ["5m", "15m", "30m"]:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid 'timeframe'. Must be '5m', '15m', or '30m'."
+        )
+
+    try:
+        # Offload DataFrame creation and analysis to a thread
+        df = await asyncio.to_thread(_create_prediction_dataframe, historical_data)
+
+        result = await asyncio.to_thread(scalping_service.analyze_strategy, df, timeframe)
+        return result
+    except Exception as e:
+        logging.error(f"Scalping analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 @app.get("/trading-pairs")
