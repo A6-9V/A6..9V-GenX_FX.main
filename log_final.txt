@@ -1,0 +1,5 @@
+acf4238 Exness Okta integration and CI fixes
+c192742 Merge pull request #113 from A6-9V/palette-billing-icons-14311125046412027657
+ae2ff45 Merge pull request #114 from A6-9V/update-repository-scripts-reset-14447209018224649302
+9201a09 Add git reset scripts for Windows and Unix
+93a92c9 feat(ux): add visual icons to billing form fields

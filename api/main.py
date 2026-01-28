@@ -60,13 +60,15 @@ async def lifespan(app: FastAPI):
     try:
         conn = sqlite3.connect("genxdb_fx.db")
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS payment_methods (
                 id INTEGER PRIMARY KEY,
                 cardholder_name TEXT,
                 masked_card_number TEXT
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
     except Exception as e:
@@ -354,7 +356,8 @@ async def get_predictions(request: Request):
     # conserves server resources and provides clearer API feedback.
     if "historical_data" not in data or not isinstance(data["historical_data"], list):
         raise HTTPException(
-            status_code=422, detail="'historical_data' is required and must be a list."
+            status_code=422,
+            detail="'historical_data' is required and must be a list."
         )
 
     if predictor:

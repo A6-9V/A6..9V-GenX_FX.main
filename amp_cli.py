@@ -595,6 +595,8 @@ def run():
             "❌ [bold red]AMP Job Runner not found. Please ensure amp_job_runner.py exists."
         )
 
+<<<<<<< HEAD
+=======
 
 @app.command()
 def exness_okta():
@@ -612,6 +614,7 @@ def exness_okta():
         )
     )
 
+>>>>>>> 1f6128b (Exness Okta integration and CI fixes)
 
 @app.command()
 def auth(

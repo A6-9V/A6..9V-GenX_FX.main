@@ -151,9 +151,13 @@ def main():
             load_dotenv()
             print(f"{GREEN}✅ Loaded .env file{NC}\n")
     except ImportError:
+<<<<<<< HEAD
+        print(f"{YELLOW}⚠️  python-dotenv not installed, using system environment{NC}\n")
+=======
         print(
             f"{YELLOW}⚠️  python-dotenv not installed, using system environment{NC}\n"
         )
+>>>>>>> 1f6128b (Exness Okta integration and CI fixes)
 
     # Run all checks
     checks = [
