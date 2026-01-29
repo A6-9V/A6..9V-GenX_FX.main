@@ -48,7 +48,11 @@ def setup_database():
     config_path = "config/trading_config.json"
     if not os.path.exists(config_path):
         # Fallback for when running from scripts/setup/
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "trading_config.json")
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "config",
+            "trading_config.json",
+        )
 
     symbols = []
     try:
@@ -69,7 +73,7 @@ def setup_database():
                 quote = symbol[3:]
             else:
                 base = symbol
-                quote = "USD" # Default fallback
+                quote = "USD"  # Default fallback
 
             try:
                 cursor.execute(
