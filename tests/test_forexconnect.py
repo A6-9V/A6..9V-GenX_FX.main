@@ -7,6 +7,7 @@ This script tests the ForexConnect installation and shows basic usage examples.
 
 import pytest
 
+
 def test_forexconnect_import():
     """
     Tests if the ForexConnect module can be imported successfully and prints
