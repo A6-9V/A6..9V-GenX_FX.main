@@ -81,7 +81,7 @@ REM Create robust startup script
 echo @echo off > start-genx-robust.bat
 echo echo Starting GenX FX Robust Backend Service... >> start-genx-robust.bat
 echo chcp 65001 >nul >> start-genx-robust.bat
-echo python genx-robust-backend.py >> start-genx-robust.bat
+echo python genx_robust_backend.py >> start-genx-robust.bat
 echo pause >> start-genx-robust.bat
 
 REM Create API server script
@@ -132,7 +132,7 @@ echo.
 echo Available Commands:
 echo   - start-genx-robust.bat    : Start robust backend service
 echo   - start-api-server.bat     : Start API server only
-echo   - python genx-robust-backend.py : Direct Python execution
+echo   - python genx_robust_backend.py : Direct Python execution
 echo.
 echo Next Steps:
 echo   1. Set your API keys in environment variables

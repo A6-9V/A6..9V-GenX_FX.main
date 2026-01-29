@@ -59,7 +59,7 @@ echo Press Ctrl+C to stop the service
 echo ========================================
 echo.
 
-python genx-24-7-backend.py
+python genx_24_7_backend.py
 
 echo.
 echo 🛑 GenX FX 24/7 Backend Service stopped

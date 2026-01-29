@@ -14,7 +14,7 @@ echo Waiting for API server to start...
 timeout /t 3 /nobreak >nul
 
 echo Starting Gold Signal Generator...
-start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator && python genx-robust-backend.py"
+start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator && python genx_robust_backend.py"
 
 echo.
 echo ========================================

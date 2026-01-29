@@ -192,10 +192,10 @@ if exist "gold-signal-generator.py" (
 echo.
 
 echo Testing robust backend...
-if exist "genx-robust-backend.py" (
-    echo ✓ genx-robust-backend.py found
+if exist "genx_robust_backend.py" (
+    echo ✓ genx_robust_backend.py found
 ) else (
-    echo ✗ genx-robust-backend.py missing
+    echo ✗ genx_robust_backend.py missing
 )
 
 echo.

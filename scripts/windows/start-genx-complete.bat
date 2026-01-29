@@ -59,7 +59,7 @@ timeout /t 3 /nobreak >nul
 
 REM Start signal generator
 echo Starting Gold Signal Generator...
-start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator && chcp 65001 >nul && python genx-robust-backend.py"
+start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator && chcp 65001 >nul && python genx_robust_backend.py"
 
 echo.
 echo ========================================
