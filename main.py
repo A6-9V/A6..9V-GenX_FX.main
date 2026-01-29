@@ -19,11 +19,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # Add project root to path
 sys.path.append(str(Path(__file__).parent))
 
-from core.trading_engine import TradingEngine
-from core.data_sources.fxcm_provider import FXCMDataProvider, MockFXCMProvider
-from core.ai_models.ensemble_predictor import EnsemblePredictor
-from core.model_trainer import ModelTrainer
-from core.backtester import Backtester
+from experimental.core.trading_engine import TradingEngine
+from experimental.core.data_sources.fxcm_provider import FXCMDataProvider, MockFXCMProvider
+from experimental.core.ai_models.ensemble_predictor import EnsemblePredictor
+from experimental.core.model_trainer import ModelTrainer
+from experimental.core.backtester import Backtester
 from utils.config_manager import ConfigManager
 from utils.logger_setup import setup_logging
 

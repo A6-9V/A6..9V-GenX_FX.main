@@ -35,14 +35,15 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application files (only what's needed)
 COPY main.py ./
-COPY core/ ./core/
+COPY experimental/core/ ./experimental/core/
+COPY experimental/ai_models/ ./experimental/ai_models/
 COPY config/ ./config/
 COPY utils/ ./utils/
 COPY api/ ./api/
 COPY services/ ./services/
 COPY shared/ ./shared/
 COPY database/ ./database/
-COPY expert-advisors/ ./expert-advisors/
+COPY experimental/expert-advisors/ ./experimental/expert-advisors/
 
 # Copy deployment scripts if they exist
 COPY deploy/exness_deploy.sh ./deploy/exness_deploy.sh 2>/dev/null || echo "Deploy script not found, skipping..."

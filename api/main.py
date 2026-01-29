@@ -18,11 +18,11 @@ from contextlib import asynccontextmanager
 
 # Check if ai_models module exists and can be imported
 try:
-    from ai_models.ensemble_predictor import EnsemblePredictor
+    from experimental.ai_models.ensemble_predictor import EnsemblePredictor
 
     has_ai_models = True
 except ImportError:
-    logging.warning("Could not import ai_models. Predictions will be disabled.")
+    logging.warning("Could not import experimental.ai_models. Predictions will be disabled.")
     has_ai_models = False
 
 # Check if ScalpingService exists and can be imported

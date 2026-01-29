@@ -30,7 +30,8 @@ RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 # Copy application files
 COPY main.py ./
-COPY core/ ./core/
+COPY experimental/core/ ./experimental/core/
+COPY experimental/ai_models/ ./experimental/ai_models/
 COPY config/ ./config/
 COPY utils/ ./utils/
 COPY api/ ./api/

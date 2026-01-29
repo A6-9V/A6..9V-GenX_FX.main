@@ -5,7 +5,7 @@ import pandas as pd
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.execution.bybit import BybitAPI
+from experimental.core.execution.bybit import BybitAPI
 
 
 def download_historical_data(symbol, interval, start_time, end_time):

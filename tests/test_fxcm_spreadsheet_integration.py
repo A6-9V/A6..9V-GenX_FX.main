@@ -99,7 +99,7 @@ class FXCMSpreadsheetIntegrationTest:
 
             # Import the appropriate provider
             if use_mock:
-                from core.data_sources.fxcm_forexconnect_provider import (
+                from experimental.core.data_sources.fxcm_forexconnect_provider import (
                     MockFXCMForexConnectProvider,
                 )
 
@@ -108,7 +108,7 @@ class FXCMSpreadsheetIntegrationTest:
                 )
                 logger.info("Using Mock FXCM ForexConnect Provider")
             else:
-                from core.data_sources.fxcm_forexconnect_provider import (
+                from experimental.core.data_sources.fxcm_forexconnect_provider import (
                     FXCMForexConnectProvider,
                 )
 
@@ -138,7 +138,7 @@ class FXCMSpreadsheetIntegrationTest:
             bool: True if the setup is successful, False otherwise.
         """
         try:
-            from core.spreadsheet_manager import SpreadsheetManager
+            from experimental.core.spreadsheet_manager import SpreadsheetManager
 
             self.spreadsheet_manager = SpreadsheetManager(self.config["spreadsheet"])
             await self.spreadsheet_manager.initialize()

@@ -22,10 +22,10 @@ import schedule
 import time
 import threading
 
-from ai_models.ensemble_model import EnsembleModel
-from ai_models.market_predictor import MarketPredictor
-from core.indicators import TechnicalIndicators
-from core.patterns import PatternDetector
+from experimental.ai_models.ensemble_model import EnsembleModel
+from experimental.ai_models.market_predictor import MarketPredictor
+from experimental.core.indicators import TechnicalIndicators
+from experimental.core.patterns import PatternDetector
 from utils.config import load_config
 
 # Configure logging

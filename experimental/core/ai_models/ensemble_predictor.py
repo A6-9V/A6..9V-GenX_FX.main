@@ -28,9 +28,9 @@ from sklearn.metrics import (
 import xgboost as xgb
 import lightgbm as lgb
 
-from core.feature_engineering.technical_features import TechnicalFeatureEngine
-from core.feature_engineering.market_microstructure import MarketMicrostructureFeatures
-from core.feature_engineering.sentiment_features import SentimentFeatures
+from experimental.core.feature_engineering.technical_features import TechnicalFeatureEngine
+from experimental.core.feature_engineering.market_microstructure import MarketMicrostructureFeatures
+from experimental.core.feature_engineering.sentiment_features import SentimentFeatures
 from utils.model_validation import ModelValidator
 
 logger = logging.getLogger(__name__)

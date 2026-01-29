@@ -53,10 +53,17 @@ class GenXCLI:
         self.signal_output_dir = self.project_root / "signal_output"
 
         # Core directories
-        self.core_dir = self.project_root / "core"
+        self.experimental_dir = self.project_root / "experimental"
+        self.core_dir = self.experimental_dir / "core"
         self.api_dir = self.project_root / "api"
         self.client_dir = self.project_root / "client"
+        self.automation_dir = self.project_root / "automation"
+        self.cli_dir = self.automation_dir / "cli"
         self.logs_dir = self.project_root / "logs"
+
+        # Add CLI dir to path for imports
+        if str(self.cli_dir) not in sys.path:
+            sys.path.append(str(self.cli_dir))
 
     def load_config(self) -> Dict:
         """
@@ -68,7 +75,132 @@ class GenXCLI:
         if self.config_file.exists():
             with open(self.config_file, "r") as f:
                 return json.load(f)
-        return {}
+        return {
+            "api_provider": "gemini",
+            "plugins": [],
+            "services": [],
+            "dependencies": [],
+            "env_vars": {},
+        }
+
+    def save_config(self, config: Dict):
+        """
+        Saves the system configuration to the amp_config.json file.
+        """
+        with open(self.config_file, "w") as f:
+            json.dump(config, f, indent=2)
+
+    def update_config(
+        self,
+        env_file: Optional[str] = None,
+        set_config: Optional[List[str]] = None,
+        add_dependency: Optional[List[str]] = None,
+        add_env: Optional[List[str]] = None,
+        description: Optional[str] = None,
+    ):
+        """Updates the system configuration."""
+        config = self.load_config()
+
+        if set_config:
+            for setting in set_config:
+                if "=" in setting:
+                    k, v = setting.split("=", 1)
+                    config[k] = v
+        if add_dependency:
+            config.setdefault("dependencies", []).extend(add_dependency)
+        if add_env:
+            for env_var in add_env:
+                if "=" in env_var:
+                    k, v = env_var.split("=", 1)
+                    config.setdefault("env_vars", {})[k] = v
+        if description:
+            config["description"] = description
+
+        self.save_config(config)
+
+    def verify_installation(
+        self,
+        check_dependencies: bool = False,
+        check_env_vars: bool = False,
+        check_services: bool = False,
+        check_api_keys: bool = False,
+    ):
+        """Verifies the installation status."""
+        config = self.load_config()
+
+        if check_dependencies:
+            self._check_dependencies(config.get("dependencies", []))
+        if check_env_vars:
+            self._check_env_vars(config.get("env_vars", {}))
+        if check_services:
+            self._check_services(config.get("enabled_services", []))
+        if check_api_keys:
+            self._check_api_keys()
+
+    def _check_dependencies(self, dependencies: List[str]):
+        """Check if dependencies are installed"""
+        console.print("📦 [blue]Checking dependencies...")
+        table = Table(title="Dependencies Status")
+        table.add_column("Package", style="cyan")
+        table.add_column("Status", style="green")
+
+        for dep in dependencies:
+            try:
+                package = dep.split(">=")[0] if ">=" in dep else dep
+                __import__(package.replace("-", "_"))
+                table.add_row(package, "✅ Installed")
+            except ImportError:
+                table.add_row(package, "❌ Not installed")
+
+        console.print(table)
+
+    def _check_env_vars(self, env_vars: Dict[str, str]):
+        """Check environment variables"""
+        console.print("🔑 [blue]Checking environment variables...")
+        table = Table(title="Environment Variables Status")
+        table.add_column("Variable", style="cyan")
+        table.add_column("Status", style="green")
+
+        for key in env_vars:
+            if os.getenv(key):
+                table.add_row(key, "✅ Set")
+            else:
+                table.add_row(key, "❌ Not set")
+
+        console.print(table)
+
+    def _check_services(self, services: List[str]):
+        """Check services"""
+        console.print("🔧 [blue]Checking services...")
+        table = Table(title="Services Status")
+        table.add_column("Service", style="cyan")
+        table.add_column("Status", style="green")
+
+        for service in services:
+            service_file = self.project_root / "api" / "services" / f"{service}.py"
+            if service_file.exists():
+                table.add_row(service, "✅ Available")
+            else:
+                table.add_row(service, "❌ Not found")
+
+        console.print(table)
+
+    def _check_api_keys(self):
+        """Check API keys"""
+        console.print("🔑 [blue]Checking API keys...")
+        table = Table(title="API Keys Status")
+        table.add_column("API Key", style="cyan")
+        table.add_column("Status", style="green")
+
+        required_keys = ["GEMINI_API_KEY", "BYBIT_API_KEY", "BYBIT_API_SECRET"]
+
+        for key in required_keys:
+            if os.getenv(key):
+                table.add_row(key, "✅ Set")
+            else:
+                table.add_row(key, "❌ Not set")
+
+        console.print(table)
 
     def load_env_template(self) -> Dict:
         """
@@ -108,13 +240,13 @@ class GenXCLI:
 
         # Check directories
         key_dirs = [
-            "core",
+            "experimental",
+            "automation",
             "api",
             "client",
             "signal_output",
             "logs",
             "config",
-            "ai_models",
         ]
         for dir_name in key_dirs:
             dir_path = self.project_root / dir_name
@@ -184,6 +316,17 @@ class GenXCLI:
 def status():
     """Show comprehensive system status"""
     cli = GenXCLI()
+
+    # Experimental Warning
+    console.print(
+        Panel(
+            "[bold red]⚠️ EXPERIMENTAL TRADING ENGINE WARNING[/bold red]\n"
+            "The components in [cyan]experimental/[/cyan] (core trading logic, AI models, EAs) "
+            "are for educational and research purposes only.\n"
+            "Never use them with real funds without extreme caution and thorough testing.",
+            border_style="red",
+        )
+    )
 
     with Progress(
         SpinnerColumn(),
@@ -282,7 +425,7 @@ def init():
     )
 
     # Create essential directories
-    essential_dirs = ["signal_output", "logs", "config", "ai_models", "data"]
+    essential_dirs = ["signal_output", "logs", "config", "experimental/ai_models", "experimental/core/data"]
 
     with Progress(
         SpinnerColumn(),
@@ -435,7 +578,7 @@ def excel_demo(count: int = typer.Option(10, help="Number of signals to generate
         import subprocess
 
         result = subprocess.run(
-            [sys.executable, "demo_excel_generator.py"],
+            [sys.executable, "automation/utils/demo_excel_generator.py"],
             capture_output=True,
             text=True,
             cwd=str(Path.cwd()),
@@ -464,7 +607,7 @@ def excel_live(count: int = typer.Option(10, help="Number of signals to generate
     try:
         # Run the live generator
         result = subprocess.run(
-            [sys.executable, "excel_forexconnect_integration.py"],
+            [sys.executable, "automation/utils/excel_forexconnect_integration.py"],
             capture_output=True,
             text=True,
             cwd=str(Path.cwd()),
@@ -704,6 +847,11 @@ def onedrive_sync():
     console.print("[bold green]☁️ Syncing signals to OneDrive...[/bold green]")
 
     try:
+        # Add automation/utils to sys.path to import onedrive_uploader
+        utils_path = str(Path.cwd() / "automation" / "utils")
+        if utils_path not in sys.path:
+            sys.path.append(utils_path)
+
         import onedrive_uploader
 
         # Call the sync function directly
@@ -714,6 +862,110 @@ def onedrive_sync():
 
     except Exception as e:
         console.print(f"[bold red]❌ Error: {e}[/bold red]")
+
+
+@app.command()
+def update(
+    set_config: Optional[List[str]] = typer.Option(None, "--set", help="Set configuration values"),
+    add_dependency: Optional[List[str]] = typer.Option(None, "--add-dependency", help="Add dependencies"),
+    add_env: Optional[List[str]] = typer.Option(None, "--add-env", help="Add environment variables"),
+    description: Optional[str] = typer.Option(None, "--description", help="Description"),
+):
+    """Update system configuration"""
+    cli = GenXCLI()
+    cli.update_config(None, set_config, add_dependency, add_env, description)
+    console.print("✅ [bold green]Configuration update complete!")
+
+
+@app.command()
+def verify(
+    check_dependencies: bool = typer.Option(False, "--check-dependencies", help="Check dependencies"),
+    check_env_vars: bool = typer.Option(False, "--check-env-vars", help="Check environment variables"),
+    check_services: bool = typer.Option(False, "--check-services", help="Check services"),
+    check_api_keys: bool = typer.Option(False, "--check-api-keys", help="Check API keys"),
+):
+    """Verify installation"""
+    cli = GenXCLI()
+    cli.verify_installation(check_dependencies, check_env_vars, check_services, check_api_keys)
+
+
+@app.command()
+def run():
+    """Run the next automated job"""
+    cli = GenXCLI()
+    console.print("🚀 [bold blue]AMP Job Runner - Starting Next Job")
+    try:
+        from amp_job_runner import AMPJobRunner
+        runner = AMPJobRunner()
+        asyncio.run(runner.run_next_job())
+    except ImportError:
+        console.print("❌ [bold red]AMP Job Runner not found.")
+
+
+@app.command()
+def auth(
+    token: Optional[str] = typer.Option(None, "--token", help="Authentication token"),
+    logout: bool = typer.Option(False, "--logout", help="Logout current user"),
+    status: bool = typer.Option(False, "--status", help="Show authentication status"),
+):
+    """Manage platform authentication"""
+    try:
+        from amp_auth import authenticate_user, check_auth, logout_user, get_user_info
+        if logout:
+            logout_user()
+            console.print("✅ Logged out.")
+        elif status:
+            if check_auth():
+                user_info = get_user_info()
+                console.print(f"✅ [bold green]Authenticated as: {user_info['user_id']}")
+            else:
+                console.print("❌ Not authenticated")
+        elif token:
+            if authenticate_user(token):
+                console.print("✅ Authentication successful!")
+            else:
+                console.print("❌ Authentication failed!")
+    except ImportError:
+        console.print("❌ Authentication module not found")
+
+
+@app.command()
+def schedule(
+    start: bool = typer.Option(False, "--start", help="Start the scheduler"),
+    stop: bool = typer.Option(False, "--stop", help="Stop the scheduler"),
+    status: bool = typer.Option(False, "--status", help="Show scheduler status"),
+):
+    """Manage automated job scheduling"""
+    try:
+        from amp_scheduler import start_scheduler, stop_scheduler, get_scheduler_status
+        if start:
+            start_scheduler()
+            console.print("🚀 Scheduler started.")
+        elif stop:
+            stop_scheduler()
+            console.print("⏹️ Scheduler stopped.")
+        elif status:
+            info = get_scheduler_status()
+            console.print(f"📊 Running: {info['is_running']}")
+    except ImportError:
+        console.print("❌ Scheduler module not found")
+
+
+@app.command()
+def monitor(
+    dashboard: bool = typer.Option(False, "--dashboard", help="Show real-time dashboard"),
+    status: bool = typer.Option(False, "--status", help="Show system status"),
+):
+    """Monitor system performance"""
+    try:
+        from amp_monitor import get_system_status, display_dashboard
+        if dashboard:
+            display_dashboard()
+        elif status:
+            info = get_system_status()
+            console.print(f"📊 System Uptime: {info['performance'].get('uptime_seconds', 0)}s")
+    except ImportError:
+        console.print("❌ Monitor module not found")
 
 
 if __name__ == "__main__":
