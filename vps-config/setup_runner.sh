@@ -57,14 +57,26 @@ fi
 
 # 4. Register the runner
 echo "📝 Registering runner with ${GITEA_INSTANCE}..."
-./act_runner register \
+if [ -f .runner ]; then
+    echo "⚠️ Runner already registered. Re-registering..."
+fi
+
+if ! ./act_runner register \
     --instance "${GITEA_INSTANCE}" \
     --token "${REGISTRATION_TOKEN}" \
     --name "${RUNNER_NAME}" \
     --labels "${LABELS}" \
-    --no-interactive
+    --no-interactive; then
+    echo "❌ Error: Registration failed."
+    exit 1
+fi
 
 # 5. Create systemd service (Optional)
+if [ -f /etc/systemd/system/act_runner.service ]; then
+    echo "⚠️ Systemd service already exists. Updating..."
+    sudo systemctl stop act_runner || true
+fi
+
 echo "🔧 Creating systemd service..."
 cat <<EOF | sudo tee /etc/systemd/system/act_runner.service
 [Unit]

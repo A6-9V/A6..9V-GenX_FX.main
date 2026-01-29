@@ -63,7 +63,7 @@ echo git clone https://github.com/Mouy-leng/GenX_FX.git >> "D:\GenX_FX\deploy-to
 echo cd GenX_FX >> "D:\GenX_FX\deploy-to-vultr.sh"
 echo pip3 install -r requirements.txt >> "D:\GenX_FX\deploy-to-vultr.sh"
 echo python3 simple-api-server.py ^& >> "D:\GenX_FX\deploy-to-vultr.sh"
-echo python3 genx-robust-backend.py ^& >> "D:\GenX_FX\deploy-to-vultr.sh"
+echo python3 genx_robust_backend.py ^& >> "D:\GenX_FX\deploy-to-vultr.sh"
 echo echo "GenX FX deployed and running on VPS!" >> "D:\GenX_FX\deploy-to-vultr.sh"
 
 echo.

@@ -20,7 +20,7 @@ if errorlevel 1 (
 )
 
 echo 🔧 Installing Windows service...
-python genx-24-7-service.py install
+python genx_24_7_service.py install
 if errorlevel 1 (
     echo ❌ Failed to install service
     pause
@@ -47,7 +47,7 @@ echo 🔧 Management Commands:
 echo   • Start: net start GenX24_7Backend
 echo   • Stop: net stop GenX24_7Backend
 echo   • Restart: net stop GenX24_7Backend && net start GenX24_7Backend
-echo   • Remove: python genx-24-7-service.py remove
+echo   • Remove: python genx_24_7_service.py remove
 echo.
 echo 📊 Access URLs:
 echo   • API: http://localhost:8080

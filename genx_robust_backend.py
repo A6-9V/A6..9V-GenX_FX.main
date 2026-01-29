@@ -44,9 +44,9 @@ class GenXRobustBackend:
         and connection status.
         """
         self.running = False
-        self.vps_url = "http://34.71.143.222:8080"
-        self.local_api_url = "http://localhost:8080"
-        self.signal_interval = 30  # seconds
+        self.vps_url = os.environ.get("VPS_URL", "http://34.71.143.222:8080")
+        self.local_api_url = os.environ.get("LOCAL_API_URL", "http://localhost:8080")
+        self.signal_interval = int(os.environ.get("SIGNAL_INTERVAL", 30))  # seconds
         self.last_signal_time = None
 
         # Gold pairs configuration

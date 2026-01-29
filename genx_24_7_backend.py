@@ -49,7 +49,7 @@ class GenX24_7Backend:
         Initializes the GenX24_7Backend service.
         """
         self.running = False
-        self.vps_url = "http://34.71.143.222:8080"
+        self.vps_url = os.environ.get("VPS_URL", "http://34.71.143.222:8080")
         self.gemini_service = None
         self.trading_service = None
         self.ea_server = None
@@ -338,7 +338,14 @@ class GenX24_7Backend:
         self.running = True
 
         # Start monitor
-        self.monitor_process = subprocess.Popen([sys.executable, "system_monitor.py"])
+        monitor_path = (
+            Path(__file__).parent / "scripts" / "maintenance" / "system_monitor.py"
+        )
+        if not monitor_path.exists():
+            # Fallback for different execution contexts
+            monitor_path = Path("scripts/maintenance/system_monitor.py")
+
+        self.monitor_process = subprocess.Popen([sys.executable, str(monitor_path)])
         logger.info(
             f"📊 Monitoring process started with PID: {self.monitor_process.pid}"
         )
@@ -355,7 +362,7 @@ class GenX24_7Backend:
         logger.info("🌐 Starting FastAPI server on http://0.0.0.0:8080")
         logger.info("📊 Signal generation active")
         logger.info("🔗 EA communication server on port 9090")
-        logger.info("📡 VPS communication: http://34.71.143.222:8080")
+        logger.info(f"📡 VPS communication: {self.vps_url}")
 
         try:
             # Run both the server and signal generation

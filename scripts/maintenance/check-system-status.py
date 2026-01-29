@@ -164,7 +164,7 @@ def check_file_structure() -> bool:
     print("\n📁 Checking file structure...")
 
     required_files = [
-        "genx-robust-backend.py",
+        "genx_robust_backend.py",
         "simple-api-server.py",
         "start-genx-complete.bat",
         "api/main.py",

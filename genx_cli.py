@@ -716,5 +716,35 @@ def onedrive_sync():
         console.print(f"[bold red]❌ Error: {e}[/bold red]")
 
 
+@app.command("verify-vps")
+def verify_vps():
+    """Run comprehensive VPS verification checks"""
+    console.print("[bold green]🔍 Running VPS verification checks...[/bold green]")
+
+    try:
+        # Run the verification script
+        result = subprocess.run(
+            [sys.executable, "scripts/deployment/verify-setup.py"],
+            capture_output=True,
+            text=True,
+            cwd=str(Path.cwd()),
+        )
+
+        console.print(result.stdout)
+        if result.stderr:
+            console.print("[yellow]Warnings/Errors during verification:[/yellow]")
+            console.print(result.stderr)
+
+        if result.returncode == 0:
+            console.print(
+                "\n[bold green]✅ VPS verification completed![/bold green]"
+            )
+        else:
+            console.print("\n[bold red]❌ VPS verification found issues![/bold red]")
+
+    except Exception as e:
+        console.print(f"[bold red]❌ Error running verification: {e}[/bold red]")
+
+
 if __name__ == "__main__":
     app()

@@ -60,7 +60,7 @@ echo cd /d "D:\GenX_FX" >> "D:\GenX_FX\start-genx-d.bat"
 echo chcp 65001 ^>nul 2^>^&1 >> "D:\GenX_FX\start-genx-d.bat"
 echo start "GenX API Server" cmd /k "echo GenX FX API Server ^&^& python simple-api-server.py" >> "D:\GenX_FX\start-genx-d.bat"
 echo timeout /t 3 /nobreak ^>nul >> "D:\GenX_FX\start-genx-d.bat"
-echo start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator ^&^& python genx-robust-backend.py" >> "D:\GenX_FX\start-genx-d.bat"
+echo start "GenX Signal Generator" cmd /k "echo GenX FX Gold Signal Generator ^&^& python genx_robust_backend.py" >> "D:\GenX_FX\start-genx-d.bat"
 echo echo GenX FX 24/7 System started from D: Drive! >> "D:\GenX_FX\start-genx-d.bat"
 echo pause >> "D:\GenX_FX\start-genx-d.bat"
 
