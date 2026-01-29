@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class EncryptionManager:
     """
     Manages encryption and decryption of sensitive data using Fernet symmetric encryption.
@@ -46,8 +47,8 @@ class EncryptionManager:
         if not data:
             return ""
 
-        encrypted_bytes = self.cipher_suite.encrypt(data.encode('utf-8'))
-        return encrypted_bytes.decode('utf-8')
+        encrypted_bytes = self.cipher_suite.encrypt(data.encode("utf-8"))
+        return encrypted_bytes.decode("utf-8")
 
     def decrypt(self, token: str) -> str:
         """
@@ -69,8 +70,9 @@ class EncryptionManager:
         if not token:
             return ""
 
-        decrypted_bytes = self.cipher_suite.decrypt(token.encode('utf-8'))
-        return decrypted_bytes.decode('utf-8')
+        decrypted_bytes = self.cipher_suite.decrypt(token.encode("utf-8"))
+        return decrypted_bytes.decode("utf-8")
+
 
 # Global instance
 encryption_manager = EncryptionManager()

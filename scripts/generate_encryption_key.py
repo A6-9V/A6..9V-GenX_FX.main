@@ -7,6 +7,7 @@ Users can run this script and add the output to their .env file as CRYPTION_KEY.
 from cryptography.fernet import Fernet
 import sys
 
+
 def generate_key():
     try:
         key = Fernet.generate_key().decode()
@@ -21,6 +22,7 @@ def generate_key():
     except Exception as e:
         print(f"Error generating key: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     generate_key()

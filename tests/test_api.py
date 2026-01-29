@@ -8,7 +8,8 @@ import json
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app, get_db
+    from api.main import app
+    from api.database import get_db
 
     FASTAPI_AVAILABLE = True
 except ImportError:
