@@ -155,7 +155,7 @@ class TradingEngine:
         self.position_sizer = PositionSizer(
             account_balance=self.config.get("account_balance", 100000),
             max_risk_per_trade=rm_config.get("max_risk_per_trade", 0.02),
-            max_portfolio_risk=rm_config.get("max_total_risk", 0.06)
+            max_portfolio_risk=rm_config.get("max_total_risk", 0.06),
         )
 
         self.signal_validator = MultiTimeframeValidator(self.config["validation"])

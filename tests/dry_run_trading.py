@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 import os
@@ -11,6 +10,7 @@ sys.path.append(os.getcwd())
 from core.trading_engine import TradingEngine
 from core.data_sources.fxcm_provider import MockFXCMProvider
 from unittest.mock import patch, MagicMock
+
 
 async def dry_run():
     logging.basicConfig(level=logging.INFO)
@@ -27,15 +27,16 @@ async def dry_run():
 
     # Mock EnsemblePredictor to avoid training/loading issues and return a consistent signal
     mock_predictor = MagicMock()
+
     # Ensure it returns an awaitable
     async def mock_predict(*args, **kwargs):
         return {
-            "direction": 0.8, # Strong Buy
+            "direction": 0.8,  # Strong Buy
             "confidence": 0.85,
             "signal_strength": "STRONG",
             "model_agreement": 0.9,
             "fundamental_score": 0.7,
-            "model_scores": {"random_forest": 0.8, "xgboost": 0.75}
+            "model_scores": {"random_forest": 0.8, "xgboost": 0.75},
         }
 
     engine.ensemble_predictor.predict = mock_predict
@@ -43,6 +44,7 @@ async def dry_run():
     # Mock Signal Validator to always approve
     async def mock_validate(*args, **kwargs):
         return True
+
     engine.signal_validator.validate = mock_validate
 
     logger.info("Injecting mock components complete.")
@@ -91,6 +93,7 @@ async def dry_run():
                 assert len(line.split(",")) == 9
     else:
         logger.error("MT4_Signals.csv not found!")
+
 
 if __name__ == "__main__":
     asyncio.run(dry_run())

@@ -326,7 +326,9 @@ class GoldSignalGenerator:
             for signal in signals:
                 magic = hash(f"{signal['symbol']}_{signal['timestamp']}") % 2147483647
                 # Use confidence as a proxy for lot size if not specified
-                lot_size = round(signal.get("lot_size", signal["confidence"] / 1000.0), 2)
+                lot_size = round(
+                    signal.get("lot_size", signal["confidence"] / 1000.0), 2
+                )
                 if lot_size < 0.01:
                     lot_size = 0.01
 

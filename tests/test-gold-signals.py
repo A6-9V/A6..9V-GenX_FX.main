@@ -76,16 +76,14 @@ def test_signal_generation() -> bool:
 
     # Save to CSV file (Standardized GenX Format - 9 Columns)
     magic = hash(f"{test_signal['symbol']}_{test_signal['timestamp']}") % 2147483647
-    lot_size = round(test_signal['confidence'] / 1000.0, 2)
+    lot_size = round(test_signal["confidence"] / 1000.0, 2)
     if lot_size < 0.01:
         lot_size = 0.01
 
-    confidence = test_signal['confidence']
+    confidence = test_signal["confidence"]
 
     csv_data = "Magic,Symbol,Signal,EntryPrice,StopLoss,TakeProfit,LotSize,Confidence,Timestamp\n"
-    csv_data += (
-        f"{magic},{test_signal['symbol']},{test_signal['action']},"
-    )
+    csv_data += f"{magic},{test_signal['symbol']},{test_signal['action']},"
     csv_data += f"{test_signal['entry_price']},{test_signal['stop_loss']},{test_signal['take_profit']},"
     csv_data += f"{lot_size},{confidence},{test_signal['timestamp']}\n"
 
