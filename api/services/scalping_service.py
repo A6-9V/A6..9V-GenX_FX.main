@@ -5,6 +5,7 @@ from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
+
 class ScalpingService:
     """
     Service for generating scalping signals based on 5m, 15m, and 30m timeframes.
@@ -25,7 +26,7 @@ class ScalpingService:
             Dict[str, Any]: Signal details including 'action' (BUY, SELL, NEUTRAL), 'confidence', and 'reasoning'.
         """
         # Ensure required columns exist
-        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        required_cols = ["open", "high", "low", "close", "volume"]
         if not all(col in df.columns for col in required_cols):
             raise ValueError(f"DataFrame must contain columns: {required_cols}")
 
@@ -36,20 +37,31 @@ class ScalpingService:
         elif timeframe == "30m":
             return self._analyze_30m(df)
         else:
-            raise ValueError(f"Unsupported timeframe: {timeframe}. Supported: 5m, 15m, 30m")
+            raise ValueError(
+                f"Unsupported timeframe: {timeframe}. Supported: 5m, 15m, 30m"
+            )
 
     def _analyze_5m(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
         5-Minute Strategy: EMA Trend Pullback with Stochastic.
         """
-        close = df['close']
-        high = df['high']
-        low = df['low']
+        close = df["close"]
+        high = df["high"]
+        low = df["low"]
 
         # Indicators
         ema20 = talib.EMA(close, timeperiod=20)
         ema50 = talib.EMA(close, timeperiod=50)
-        stoch_k, stoch_d = talib.STOCH(high, low, close, fastk_period=5, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
+        stoch_k, stoch_d = talib.STOCH(
+            high,
+            low,
+            close,
+            fastk_period=5,
+            slowk_period=3,
+            slowk_matype=0,
+            slowd_period=3,
+            slowd_matype=0,
+        )
 
         # Get latest values (assume last row is the current candle)
         # We need the completed previous candle for confirmation, but for real-time we might check current.
@@ -63,8 +75,8 @@ class ScalpingService:
 
         k_curr = stoch_k.iloc[idx]
         d_curr = stoch_d.iloc[idx]
-        k_prev = stoch_k.iloc[idx-1]
-        d_prev = stoch_d.iloc[idx-1]
+        k_prev = stoch_k.iloc[idx - 1]
+        d_prev = stoch_d.iloc[idx - 1]
 
         signal = "NEUTRAL"
         reason = []
@@ -75,7 +87,7 @@ class ScalpingService:
         is_uptrend = c_close > c_ema20 and c_ema20 > c_ema50
         # Pullback/Entry: Stoch Cross Up in Oversold (<20)
         stoch_cross_up = k_prev < d_prev and k_curr > d_curr
-        stoch_oversold = k_curr < 25 # Slightly loose threshold
+        stoch_oversold = k_curr < 25  # Slightly loose threshold
 
         if is_uptrend:
             reason.append("Uptrend (Close > EMA20 > EMA50)")
@@ -84,14 +96,14 @@ class ScalpingService:
                 confidence = 0.85
                 reason.append("Stochastic Cross Up in Oversold Zone")
             elif stoch_oversold:
-                 reason.append("Stochastic Oversold (Waiting for cross)")
+                reason.append("Stochastic Oversold (Waiting for cross)")
 
         # Short Condition
         # Trend: Price < EMA20 < EMA50
         is_downtrend = c_close < c_ema20 and c_ema20 < c_ema50
         # Pullback/Entry: Stoch Cross Down in Overbought (>80)
         stoch_cross_down = k_prev > d_prev and k_curr < d_curr
-        stoch_overbought = k_curr > 75 # Slightly loose threshold
+        stoch_overbought = k_curr > 75  # Slightly loose threshold
 
         if is_downtrend:
             reason.append("Downtrend (Close < EMA20 < EMA50)")
@@ -100,7 +112,7 @@ class ScalpingService:
                 confidence = 0.85
                 reason.append("Stochastic Cross Down in Overbought Zone")
             elif stoch_overbought:
-                 reason.append("Stochastic Overbought (Waiting for cross)")
+                reason.append("Stochastic Overbought (Waiting for cross)")
 
         return {
             "signal": signal,
@@ -110,25 +122,27 @@ class ScalpingService:
                 "ema20": float(c_ema20),
                 "ema50": float(c_ema50),
                 "stoch_k": float(k_curr),
-                "stoch_d": float(d_curr)
+                "stoch_d": float(d_curr),
             },
-            "reasoning": "; ".join(reason)
+            "reasoning": "; ".join(reason),
         }
 
     def _analyze_15m(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
         15-Minute Strategy: Bollinger Bands Reversal with RSI.
         """
-        close = df['close']
+        close = df["close"]
 
         # Indicators
-        upper, middle, lower = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+        upper, middle, lower = talib.BBANDS(
+            close, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0
+        )
         rsi = talib.RSI(close, timeperiod=14)
 
         idx = -1
         c_close = close.iloc[idx]
-        c_low = df['low'].iloc[idx]
-        c_high = df['high'].iloc[idx]
+        c_low = df["low"].iloc[idx]
+        c_high = df["high"].iloc[idx]
         c_upper = upper.iloc[idx]
         c_lower = lower.iloc[idx]
         c_rsi = rsi.iloc[idx]
@@ -140,22 +154,22 @@ class ScalpingService:
         # Long Condition: Price touches lower band, RSI oversold
         if c_low <= c_lower:
             reason.append("Price touched Lower Bollinger Band")
-            if c_rsi < 35: # Oversold threshold
+            if c_rsi < 35:  # Oversold threshold
                 signal = "BUY"
                 confidence = 0.8
                 reason.append(f"RSI Oversold ({c_rsi:.2f})")
             else:
-                 reason.append(f"RSI Neutral ({c_rsi:.2f})")
+                reason.append(f"RSI Neutral ({c_rsi:.2f})")
 
         # Short Condition: Price touches upper band, RSI overbought
         elif c_high >= c_upper:
             reason.append("Price touched Upper Bollinger Band")
-            if c_rsi > 65: # Overbought threshold
+            if c_rsi > 65:  # Overbought threshold
                 signal = "SELL"
                 confidence = 0.8
                 reason.append(f"RSI Overbought ({c_rsi:.2f})")
             else:
-                 reason.append(f"RSI Neutral ({c_rsi:.2f})")
+                reason.append(f"RSI Neutral ({c_rsi:.2f})")
 
         return {
             "signal": signal,
@@ -164,26 +178,28 @@ class ScalpingService:
             "indicators": {
                 "bb_upper": float(c_upper),
                 "bb_lower": float(c_lower),
-                "rsi": float(c_rsi)
+                "rsi": float(c_rsi),
             },
-            "reasoning": "; ".join(reason)
+            "reasoning": "; ".join(reason),
         }
 
     def _analyze_30m(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
         30-Minute Strategy: MACD Trend Following.
         """
-        close = df['close']
+        close = df["close"]
 
         # Indicators
         ema50 = talib.EMA(close, timeperiod=50)
-        macd, macd_signal, macd_hist = talib.MACD(close, fastperiod=12, slowperiod=26, signalperiod=9)
+        macd, macd_signal, macd_hist = talib.MACD(
+            close, fastperiod=12, slowperiod=26, signalperiod=9
+        )
 
         idx = -1
         c_close = close.iloc[idx]
         c_ema50 = ema50.iloc[idx]
         c_hist = macd_hist.iloc[idx]
-        p_hist = macd_hist.iloc[idx-1]
+        p_hist = macd_hist.iloc[idx - 1]
 
         signal = "NEUTRAL"
         reason = []
@@ -215,9 +231,6 @@ class ScalpingService:
             "signal": signal,
             "confidence": confidence,
             "timeframe": "30m",
-            "indicators": {
-                "ema50": float(c_ema50),
-                "macd_hist": float(c_hist)
-            },
-            "reasoning": "; ".join(reason)
+            "indicators": {"ema50": float(c_ema50), "macd_hist": float(c_hist)},
+            "reasoning": "; ".join(reason),
         }

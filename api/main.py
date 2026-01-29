@@ -28,6 +28,7 @@ except ImportError:
 # Check if ScalpingService exists and can be imported
 try:
     from api.services.scalping_service import ScalpingService
+
     has_scalping_service = True
 except ImportError:
     logging.warning("Could not import ScalpingService.")
@@ -78,15 +79,13 @@ async def lifespan(app: FastAPI):
     try:
         conn = sqlite3.connect("genxdb_fx.db")
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS payment_methods (
                 id INTEGER PRIMARY KEY,
                 cardholder_name TEXT,
                 masked_card_number TEXT
             )
-        """
-        )
+        """)
         conn.commit()
         conn.close()
     except Exception as e:
@@ -375,8 +374,7 @@ async def get_predictions(request: Request):
     # conserves server resources and provides clearer API feedback.
     if "historical_data" not in data or not isinstance(data["historical_data"], list):
         raise HTTPException(
-            status_code=422,
-            detail="'historical_data' is required and must be a list."
+            status_code=422, detail="'historical_data' is required and must be a list."
         )
 
     if predictor:
@@ -433,7 +431,7 @@ async def get_scalping_signals(request: Request):
         return {
             "signal": "NEUTRAL",
             "status": "scalping service not initialized",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     historical_data = data.get("historical_data")
@@ -442,21 +440,22 @@ async def get_scalping_signals(request: Request):
     # Input validation
     if not historical_data or not isinstance(historical_data, list):
         raise HTTPException(
-            status_code=422,
-            detail="'historical_data' is required and must be a list."
+            status_code=422, detail="'historical_data' is required and must be a list."
         )
 
     if timeframe not in ["5m", "15m", "30m"]:
         raise HTTPException(
             status_code=422,
-            detail="Invalid 'timeframe'. Must be '5m', '15m', or '30m'."
+            detail="Invalid 'timeframe'. Must be '5m', '15m', or '30m'.",
         )
 
     try:
         # Offload DataFrame creation and analysis to a thread
         df = await asyncio.to_thread(_create_prediction_dataframe, historical_data)
 
-        result = await asyncio.to_thread(scalping_service.analyze_strategy, df, timeframe)
+        result = await asyncio.to_thread(
+            scalping_service.analyze_strategy, df, timeframe
+        )
         return result
     except Exception as e:
         logging.error(f"Scalping analysis failed: {str(e)}")

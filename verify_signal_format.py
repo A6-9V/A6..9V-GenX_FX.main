@@ -2,6 +2,7 @@ import csv
 import os
 from pathlib import Path
 
+
 def verify_signal_format():
     signal_file = Path("signal_output/MT4_Signals.csv")
 
@@ -12,7 +13,7 @@ def verify_signal_format():
     print(f"🔍 Verifying signal format for: {signal_file}")
 
     try:
-        with open(signal_file, mode='r', encoding='utf-8') as f:
+        with open(signal_file, mode="r", encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
 
@@ -22,10 +23,14 @@ def verify_signal_format():
             # timestamp,symbol,action,entry_price,stop_loss,take_profit,confidence,reasoning,source
             expected_fields = 9
             if len(header) < 7:
-                 print(f"❌ Error: Header has only {len(header)} fields, expected at least 7.")
-                 return False
+                print(
+                    f"❌ Error: Header has only {len(header)} fields, expected at least 7."
+                )
+                return False
 
-            print(f"✅ Header has {len(header)} fields (expected at least 7 for the improved EA).")
+            print(
+                f"✅ Header has {len(header)} fields (expected at least 7 for the improved EA)."
+            )
 
             row_count = 0
             for row in reader:
@@ -44,7 +49,9 @@ def verify_signal_format():
                     confidence = float(row[6])
 
                     if action not in ["BUY", "SELL", "HOLD"]:
-                        print(f"⚠️ Warning: Row {row_count} has unusual action: {action}")
+                        print(
+                            f"⚠️ Warning: Row {row_count} has unusual action: {action}"
+                        )
 
                 except ValueError as e:
                     print(f"❌ Row {row_count} has invalid numeric data: {e}")
@@ -56,6 +63,7 @@ def verify_signal_format():
     except Exception as e:
         print(f"❌ An error occurred: {e}")
         return False
+
 
 if __name__ == "__main__":
     if verify_signal_format():

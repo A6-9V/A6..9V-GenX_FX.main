@@ -3,10 +3,12 @@ from cryptography.fernet import Fernet
 from utils.encryption import EncryptionManager
 import api.config
 
+
 def test_key_generation_and_init():
     key = Fernet.generate_key().decode()
     manager = EncryptionManager(key=key)
     assert manager.cipher_suite is not None
+
 
 def test_encryption_decryption_round_trip():
     key = Fernet.generate_key().decode()
@@ -18,12 +20,14 @@ def test_encryption_decryption_round_trip():
     assert encrypted != original_text
     assert manager.decrypt(encrypted) == original_text
 
+
 def test_empty_string():
     key = Fernet.generate_key().decode()
     manager = EncryptionManager(key=key)
 
     assert manager.encrypt("") == ""
     assert manager.decrypt("") == ""
+
 
 def test_missing_key():
     # Save original key
@@ -38,6 +42,7 @@ def test_missing_key():
     finally:
         # Restore original key
         api.config.settings.CRYPTION_KEY = original_key
+
 
 def test_invalid_key_format():
     # Fernet keys must be 32 url-safe base64-encoded bytes.
