@@ -90,7 +90,7 @@ async def test_data_service():
 def test_technical_indicators():
     """Test technical indicators"""
     import pandas as pd
-    from core.indicators import TechnicalIndicators
+    from experimental.core.indicators import TechnicalIndicators
 
     # Create sample data
     data = pd.DataFrame(
@@ -115,7 +115,7 @@ def test_technical_indicators():
 def test_pattern_detector():
     """Test pattern detector"""
     import pandas as pd
-    from core.patterns import PatternDetector
+    from experimental.core.patterns import PatternDetector
 
     # Create sample data
     data = pd.DataFrame(

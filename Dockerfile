@@ -35,8 +35,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | s
     sudo apt-get update && \
     sudo apt-get install -y gh
 
-# Copy the jules.sh script into the container
-COPY --chown=jules:jules jules.sh .
+# Copy the automation/jules.sh .cript into the container
+COPY --chown=jules:jules automation/jules.sh .
 RUN sudo chmod +x jules.sh
 
 # Set the entrypoint

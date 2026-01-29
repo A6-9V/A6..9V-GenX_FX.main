@@ -3,7 +3,7 @@ import os
 
 # Skip tests if dependencies are not available
 try:
-    from core.execution.bybit import BybitAPI
+    from experimental.core.execution.bybit import BybitAPI
     from unittest.mock import Mock, patch
 
     BYBIT_AVAILABLE = True

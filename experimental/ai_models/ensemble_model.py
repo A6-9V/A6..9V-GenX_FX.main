@@ -19,8 +19,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from .model_utils import ModelUtils
-from core.indicators import TechnicalIndicators
-from core.patterns import PatternDetector
+from experimental.core.indicators import TechnicalIndicators
+from experimental.core.patterns import PatternDetector
 
 
 class EnsembleModel:

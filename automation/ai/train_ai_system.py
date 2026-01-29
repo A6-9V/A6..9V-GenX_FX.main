@@ -14,9 +14,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).parent))
 
-from ai_models.ensemble_predictor import EnsemblePredictor, FeatureEngineer
-from ai_models.market_predictor import MarketPredictor
-from ai_models.ensemble_model import EnsembleModel
+from experimental.ai_models.ensemble_predictor import EnsemblePredictor, FeatureEngineer
+from experimental.ai_models.market_predictor import MarketPredictor
+from experimental.ai_models.ensemble_model import EnsembleModel
 from services.ai_trainer import AITrainingService, TrainingMetrics
 import pandas as pd
 import numpy as np

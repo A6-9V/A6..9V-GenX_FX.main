@@ -26,8 +26,8 @@ from api.services.ea_communication import create_ea_server, TradingSignal
 from api.services.enhanced_gemini_service import create_enhanced_gemini_service
 from api.services.news_service import NewsService
 from api.services.reddit_service import RedditService
-from ai_models.ensemble_predictor import create_ensemble_predictor
-from core.config.settings import get_settings
+from experimental.ai_models.ensemble_predictor import create_ensemble_predictor
+from experimental.core.config.settings import get_settings
 
 # Setup logging
 logging.basicConfig(
