@@ -20,6 +20,7 @@ from core.data_sources.fxcm_provider import FXCMDataProvider
 from core.risk_management.position_sizer import PositionSizer
 from core.signal_validators.multi_timeframe_validator import MultiTimeframeValidator
 from core.spreadsheet_manager import SpreadsheetManager
+from core.strategies.scalping_strategy import ScalpingStrategy
 from utils.technical_indicators import TechnicalIndicators
 
 logger = logging.getLogger(__name__)
@@ -147,6 +148,7 @@ class TradingEngine:
         self.signal_validator = MultiTimeframeValidator(self.config["validation"])
         self.spreadsheet_manager = SpreadsheetManager(self.config["spreadsheet"])
         self.technical_indicators = TechnicalIndicators()
+        self.scalping_strategy = ScalpingStrategy()
 
         # Performance tracking
         self.signal_history = []
@@ -306,11 +308,36 @@ class TradingEngine:
             if not self._is_data_valid(market_data):
                 return None
 
-            prediction = await self.ensemble_predictor.predict(
-                symbol=symbol,
-                data=market_data[self.config["primary_timeframe"]],
-                multi_timeframe_data=market_data,
-            )
+            primary_tf = self.config["primary_timeframe"]
+            df_primary = market_data[primary_tf]
+
+            # Use scalping strategy for small timeframes
+            if primary_tf in ["M5", "M15", "M30"]:
+                scalp_result = self.scalping_strategy.analyze(df_primary)
+
+                # If scalping strategy gives a signal, use it to augment or override
+                if scalp_result["signal"] != "hold":
+                    direction = 1.0 if scalp_result["signal"] == "buy" else -1.0
+                    prediction = {
+                        "direction": direction,
+                        "confidence": scalp_result["confidence"],
+                        "source": "scalping_strategy",
+                        "model_scores": {"scalp": scalp_result["confidence"]}
+                    }
+                else:
+                    # Fallback to AI if no scalping signal
+                    prediction = await self.ensemble_predictor.predict(
+                        symbol=symbol,
+                        data=df_primary,
+                        multi_timeframe_data=market_data,
+                    )
+            else:
+                # Default to AI for higher timeframes
+                prediction = await self.ensemble_predictor.predict(
+                    symbol=symbol,
+                    data=df_primary,
+                    multi_timeframe_data=market_data,
+                )
 
             if prediction["confidence"] < self.config["min_confidence_threshold"]:
                 return None

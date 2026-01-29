@@ -47,7 +47,8 @@ class TechnicalIndicators:
     def add_moving_averages(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add moving average indicators"""
         try:
-            periods = [5, 10, 20, 50, 100, 200]
+            # Added 13 to support scalping strategy
+            periods = [5, 10, 13, 20, 50, 100, 200]
 
             for period in periods:
                 if len(df) >= period:
