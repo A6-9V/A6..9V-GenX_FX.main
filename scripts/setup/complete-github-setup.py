@@ -3,6 +3,7 @@
 Complete GitHub Setup - Final step to ensure all secrets and variables are set
 """
 
+import os
 import requests
 import base64
 from nacl import encoding, public
