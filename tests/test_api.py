@@ -1,13 +1,15 @@
-import pytest
 import asyncio
-from unittest.mock import Mock, patch, MagicMock
+import json
 import os
 import sqlite3
-import json
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
+
     from api.main import app, get_db
 
     FASTAPI_AVAILABLE = True
@@ -90,6 +92,7 @@ async def test_data_service():
 def test_technical_indicators():
     """Test technical indicators"""
     import pandas as pd
+
     from core.indicators import TechnicalIndicators
 
     # Create sample data
@@ -115,6 +118,7 @@ def test_technical_indicators():
 def test_pattern_detector():
     """Test pattern detector"""
     import pandas as pd
+
     from core.patterns import PatternDetector
 
     # Create sample data

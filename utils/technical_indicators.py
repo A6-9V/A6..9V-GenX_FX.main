@@ -3,10 +3,11 @@ Technical Indicators Utility
 Comprehensive technical analysis indicators for forex trading
 """
 
-import pandas as pd
-import numpy as np
 import logging
 from typing import Dict, List, Optional
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
