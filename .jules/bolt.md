@@ -9,9 +9,3 @@
 **Learning:** I identified a major performance bottleneck in `utils/technical_indicators.py` where `rolling().apply(np.polyfit)` was used to calculate trend strength. This iterative approach is extremely slow because it invokes the SVD-based `polyfit` solver and Python-level overhead for every window.
 
 **Action:** I replaced the iterative approach with a vectorized mathematical formula using `np.convolve` and `rolling().sum()`. This optimization provided a ~3x speedup for the `add_trend_indicators` method, significantly reducing the CPU load during market data processing and signal generation.
-
-## 2025-05-15 - Vectorizing Aroon with sliding_window_view
-
-**Learning:** `pandas.rolling().apply(np.argmax)` is extremely slow for indicators like Aroon because it repeatedly calls a Python function for every window. Vectorizing this using `numpy.lib.stride_tricks.sliding_window_view` and `np.argmax(axis=1)` provides a ~250x speedup for the indicator calculation.
-
-**Action:** Prefer `sliding_window_view` for any rolling window operation that requires custom aggregation functions (like argmax/argmin) which are not natively optimized in pandas.

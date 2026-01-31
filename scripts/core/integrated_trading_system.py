@@ -243,6 +243,7 @@ class IntegratedTradingSystem:
     async def _generate_trading_signal(self, instrument: str, market_data):
         """Generate and validate trading signals"""
         try:
+            current_time = datetime.utcnow()
             logger.info(f"Generating trading signal for {instrument}")
 
             # Get recent historical data for prediction

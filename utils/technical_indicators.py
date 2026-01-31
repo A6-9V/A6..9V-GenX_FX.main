@@ -274,7 +274,7 @@ class TechnicalIndicators:
                 # ---
                 # ⚡ Bolt Optimization: Vectorized Aroon Indicator
                 # Replaced slow `rolling().apply()` with `sliding_window_view`.
-                # Also corrected the formula to match standard TA definition.
+                # Note: Keeping original (period - argmax) logic to avoid breaking changes.
                 # ---
                 high_vals = df["high"].values
                 low_vals = df["low"].values
@@ -291,10 +291,9 @@ class TechnicalIndicators:
                 argmax_high = np.argmax(high_windows, axis=1)
                 argmin_low = np.argmin(low_windows, axis=1)
 
-                # Standard Aroon formula: 100 * (argmax + 1) / period
-                # This ensures latest high = 100, oldest high = 4 (for period 25)
-                aroon_up_vals = 100 * (argmax_high + 1) / period
-                aroon_down_vals = 100 * (argmin_low + 1) / period
+                # Calculate Aroon values matching original formula
+                aroon_up_vals = 100 * (period - argmax_high) / period
+                aroon_down_vals = 100 * (period - argmin_low) / period
 
                 # Align with dataframe using pre-allocated series
                 aroon_up = pd.Series(np.nan, index=df.index)

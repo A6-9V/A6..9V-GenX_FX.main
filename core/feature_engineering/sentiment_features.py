@@ -5,7 +5,7 @@ Features related to market sentiment and news analysis
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 
 
