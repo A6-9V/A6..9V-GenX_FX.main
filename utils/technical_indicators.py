@@ -60,7 +60,12 @@ class TechnicalIndicators:
                     # Weighted Moving Average (Optimized)
                     # The original pandas apply() method is slow. This implementation
                     # uses numpy.convolve for a significant performance boost.
-                    weights = np.arange(1, period + 1)
+                    # ---
+                    # ⚡ Bolt Optimization: Corrected weight order for standard WMA.
+                    # np.convolve reverses weights internally; passing them reversed
+                    # ensures the latest price gets the maximum weight.
+                    # ---
+                    weights = np.arange(1, period + 1)[::-1]
                     denominator = weights.sum()
                     wma_values = (
                         np.convolve(df["close"], weights, mode="valid") / denominator
@@ -270,20 +275,42 @@ class TechnicalIndicators:
             # Aroon Indicator
             if len(df) >= 25:
                 period = 25
-                aroon_up = (
-                    100
-                    * (period - df["high"].rolling(window=period).apply(np.argmax))
-                    / period
+
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Aroon Indicator
+                # Replaced slow `rolling().apply()` with `sliding_window_view`.
+                # Also corrected the formula to match standard TA definition.
+                # ---
+                high_vals = df["high"].values
+                low_vals = df["low"].values
+
+                # Create sliding windows
+                high_windows = np.lib.stride_tricks.sliding_window_view(
+                    high_vals, window_shape=period
                 )
-                aroon_down = (
-                    100
-                    * (period - df["low"].rolling(window=period).apply(np.argmin))
-                    / period
+                low_windows = np.lib.stride_tricks.sliding_window_view(
+                    low_vals, window_shape=period
                 )
+
+                # Find argmax/argmin along the window axis (axis=1)
+                argmax_high = np.argmax(high_windows, axis=1)
+                argmin_low = np.argmin(low_windows, axis=1)
+
+                # Standard Aroon formula: 100 * (argmax + 1) / period
+                # This ensures latest high = 100, oldest high = 4 (for period 25)
+                aroon_up_vals = 100 * (argmax_high + 1) / period
+                aroon_down_vals = 100 * (argmin_low + 1) / period
+
+                # Align with dataframe using pre-allocated series
+                aroon_up = pd.Series(np.nan, index=df.index)
+                aroon_down = pd.Series(np.nan, index=df.index)
+
+                aroon_up.iloc[period - 1 :] = aroon_up_vals
+                aroon_down.iloc[period - 1 :] = aroon_down_vals
 
                 df["aroon_up"] = aroon_up
                 df["aroon_down"] = aroon_down
-                df["aroon_oscillator"] = aroon_up - aroon_down
+                df["aroon_oscillator"] = df["aroon_up"] - df["aroon_down"]
 
             # Trend strength
             periods = [10, 20, 50]
@@ -444,10 +471,13 @@ class TechnicalIndicators:
             close = df["close"]
 
             # Calculate True Range
+            # ---
+            # ⚡ Bolt Optimization: Using np.maximum instead of pd.concat.max
+            # ---
             tr1 = high - low
             tr2 = abs(high - close.shift())
             tr3 = abs(low - close.shift())
-            tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+            tr = np.maximum(tr1, np.maximum(tr2, tr3))
 
             # Calculate Directional Movement
             dm_plus = high - high.shift()
