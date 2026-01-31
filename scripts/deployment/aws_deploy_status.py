@@ -4,13 +4,13 @@ AWS Deployment Status Checker
 Checks the current state of AWS deployment and provides guidance
 """
 
-import os
 import json
+import os
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 def check_aws_cli() -> bool:
