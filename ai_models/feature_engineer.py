@@ -81,15 +81,20 @@ class FeatureEngineer:
             features.append(df["close"] / ma - 1)  # Price relative to MA
 
         # Technical indicators using TA-Lib
+        # ⚡ Bolt Optimization: Avoid redundant TA-Lib calls
+        rsi = talib.RSI(df["close"], timeperiod=14)
+        macd, macd_signal, macd_hist = talib.MACD(df["close"])
+        bb_upper, bb_middle, bb_lower = talib.BBANDS(df["close"])
+
         features.extend(
             [
-                talib.RSI(df["close"], timeperiod=14) / 100,  # Normalized RSI
-                talib.MACD(df["close"])[0],  # MACD line
-                talib.MACD(df["close"])[1],  # MACD signal
-                talib.MACD(df["close"])[2],  # MACD histogram
-                talib.BBANDS(df["close"])[0],  # Bollinger Upper
-                talib.BBANDS(df["close"])[1],  # Bollinger Middle
-                talib.BBANDS(df["close"])[2],  # Bollinger Lower
+                rsi / 100,  # Normalized RSI
+                macd,  # MACD line
+                macd_signal,  # MACD signal
+                macd_hist,  # MACD histogram
+                bb_upper,  # Bollinger Upper
+                bb_middle,  # Bollinger Middle
+                bb_lower,  # Bollinger Lower
                 talib.ATR(df["high"], df["low"], df["close"]),  # ATR
                 talib.CCI(df["high"], df["low"], df["close"]),  # CCI
                 talib.WILLR(df["high"], df["low"], df["close"]),  # Williams %R
