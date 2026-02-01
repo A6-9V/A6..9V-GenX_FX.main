@@ -203,9 +203,7 @@ class TechnicalIndicators:
                     else:
                         df[col_name] = df["close"].rolling(window=period).std()
 
-                    df[f"volatility_ratio_{period}"] = (
-                        df[col_name] / df["close"]
-                    )
+                    df[f"volatility_ratio_{period}"] = df[col_name] / df["close"]
 
             # Donchian Channels
             if len(df) >= 20:
