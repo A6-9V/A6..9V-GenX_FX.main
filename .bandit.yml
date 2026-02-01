@@ -1,0 +1,19 @@
+# Bandit configuration file
+# https://bandit.readthedocs.io/en/latest/config.html
+
+# exclude_dirs is a list of directories to skip
+exclude_dirs:
+  - tests
+  - scripts
+  - deploy
+  - forexconnect_env_37
+  - venv
+  - .venv
+  - node_modules
+
+# skippable tests
+# B101: assert_used
+# B102: exec_used
+# B301: pickle
+# B403: import_pickle
+skips: ['B101']
