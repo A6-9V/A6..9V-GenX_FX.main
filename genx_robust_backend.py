@@ -55,6 +55,8 @@ class GenXRobustBackend:
             "XAUEUR": {"name": "Gold/EUR", "weight": 0.8},
             "XAUGBP": {"name": "Gold/GBP", "weight": 0.7},
             "XAUAUD": {"name": "Gold/AUD", "weight": 0.6},
+            "BTCXAU": {"name": "Bitcoin/Gold", "weight": 0.9},
+            "BTCUSD": {"name": "Bitcoin/USD", "weight": 1.0},
         }
 
         # Signal generation settings

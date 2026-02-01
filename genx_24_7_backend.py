@@ -58,7 +58,7 @@ class GenX24_7Backend:
         self.last_signal_time = None
 
         # Gold pairs to monitor
-        self.gold_pairs = ["XAUUSD", "XAUEUR", "XAUGBP", "XAUAUD"]
+        self.gold_pairs = ["XAUUSD", "XAUEUR", "XAUGBP", "XAUAUD", "BTCXAU", "BTCUSD"]
 
         # Signal generation settings
         self.min_confidence = 75.0
