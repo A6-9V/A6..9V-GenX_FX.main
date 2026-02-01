@@ -62,7 +62,8 @@ class TechnicalIndicators:
                     # The original pandas apply() method is slow. This implementation
                     # uses numpy.convolve for a significant performance boost.
                     weights = np.arange(1, period + 1)
-                    denominator = weights.sum()
+                    # Optimized: Use formula for denominator to avoid weights.sum()
+                    denominator = period * (period + 1) / 2
                     wma_values = (
                         np.convolve(df["close"], weights, mode="valid") / denominator
                     )
@@ -124,7 +125,9 @@ class TechnicalIndicators:
             # Commodity Channel Index (CCI)
             if len(df) >= 20:
                 window = 20
+                # Optimized: Store typical price for reuse in other indicators
                 typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                df["typical_price"] = typical_price
                 sma_tp = typical_price.rolling(window=window).mean()
 
                 # ---
@@ -141,10 +144,14 @@ class TechnicalIndicators:
                     typical_price_np, shape=shape, strides=strides
                 )
 
-                # Calculate rolling mean absolute deviation
-                rolling_mean = np.mean(rolling_windows, axis=1)
+                # ---
+                # ⚡ Bolt Optimization: Reuse Rolling Mean
+                # Reusing sma_tp instead of re-calculating rolling_mean with np.mean
+                # saves N*window operations and reduces memory allocations.
+                # ---
+                sma_tp_vals = sma_tp.values[window - 1 :]
                 rolling_mad_values = np.mean(
-                    np.abs(rolling_windows - rolling_mean[:, np.newaxis]), axis=1
+                    np.abs(rolling_windows - sma_tp_vals[:, np.newaxis]), axis=1
                 )
 
                 mean_dev = pd.Series(rolling_mad_values, index=df.index[window - 1 :])
@@ -241,13 +248,10 @@ class TechnicalIndicators:
                     )
 
             # On-Balance Volume (OBV)
+            # Optimized: Use np.sign for cleaner and faster calculation
             if len(df) >= 2:
-                price_change = df["close"].diff()
-                volume_direction = np.where(
-                    price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
-                )
+                price_change = df["close"].diff().fillna(0)
+                volume_direction = np.sign(price_change) * df["volume"]
                 df["obv"] = volume_direction.cumsum()
 
             # Volume Price Trend (VPT)
@@ -341,7 +345,11 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
+                # Optimized: Reuse typical_price if already calculated
+                if "typical_price" in df.columns:
+                    df["pivot"] = df["typical_price"]
+                else:
+                    df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
                 df["r1"] = 2 * df["pivot"] - df["low"]
                 df["s1"] = 2 * df["pivot"] - df["high"]
                 df["r2"] = df["pivot"] + (df["high"] - df["low"])
