@@ -130,12 +130,20 @@ The repository includes a comprehensive test suite for both the Python backend a
 
 For more detailed information, please refer to the following guides in the repository:
 
+### Setup & Configuration
 -   **[GETTING_STARTED.md](GETTING_STARTED.md)**: A complete guide to setting up the full system from scratch.
+-   **[WSL_H_DRIVE_SETUP.md](docs/WSL_H_DRIVE_SETUP.md)**: Complete guide for Docker on WSL with H: drive, including IDE integration (VSCode, IntelliJ, PyCharm).
+-   **[IDE_INTEGRATION_GUIDE.md](docs/IDE_INTEGRATION_GUIDE.md)**: Detailed IDE setup and usage guide for WSL development.
+-   **[API_KEY_SETUP.md](API_KEY_SETUP.md)**: Instructions for configuring the necessary API keys for all services.
+
+### Trading & EAs
 -   **[GOLD_MASTER_EA_GUIDE.md](GOLD_MASTER_EA_GUIDE.md)**: A comprehensive guide for the specialized gold trading EA.
 -   **[SYSTEM_ARCHITECTURE_GUIDE.md](SYSTEM_ARCHITECTURE_GUIDE.md)**: An in-depth look at the system's design and architecture.
--   **[API_KEY_SETUP.md](API_KEY_SETUP.md)**: Instructions for configuring the necessary API keys for all services.
+
+### Integration & Deployment
 -   **[WHATSAPP_INTEGRATION_GUIDE.md](WHATSAPP_INTEGRATION_GUIDE.md)**: Guide for setting up WhatsApp notifications and group integration.
 -   **[AWS_DEPLOYMENT_GUIDE.md](AWS_DEPLOYMENT_GUIDE.md)**: A step-by-step guide to deploying the platform on AWS.
+-   **[DOCKER_DEPLOYMENT_GUIDE.md](docs/DOCKER_DEPLOYMENT_GUIDE.md)**: Docker deployment guide for production.
 
 ---
 

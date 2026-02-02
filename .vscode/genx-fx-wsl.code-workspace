@@ -1,0 +1,239 @@
+{
+  "folders": [
+    {
+      "name": "GenX FX Root",
+      "path": "."
+    },
+    {
+      "name": "API",
+      "path": "./api"
+    },
+    {
+      "name": "Client",
+      "path": "./client"
+    },
+    {
+      "name": "Expert Advisors",
+      "path": "./expert-advisors"
+    }
+  ],
+  "settings": {
+    // Python Configuration for WSL
+    "python.defaultInterpreterPath": "/usr/bin/python3",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.extraPaths": [
+      "${workspaceFolder}",
+      "${workspaceFolder}/core",
+      "${workspaceFolder}/api",
+      "${workspaceFolder}/services"
+    ],
+    
+    // Docker Configuration for WSL
+    "docker.dockerPath": "docker",
+    "docker.host": "unix:///var/run/docker.sock",
+    "docker.environment": {
+      "DOCKER_BUILDKIT": "1",
+      "COMPOSE_DOCKER_CLI_BUILD": "1"
+    },
+    
+    // Git Configuration
+    "git.autofetch": true,
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    
+    // Terminal Configuration for WSL
+    "terminal.integrated.defaultProfile.windows": "WSL",
+    "terminal.integrated.profiles.windows": {
+      "WSL": {
+        "path": "wsl.exe",
+        "args": [],
+        "icon": "terminal-linux"
+      },
+      "PowerShell": {
+        "source": "PowerShell",
+        "icon": "terminal-powershell"
+      }
+    },
+    
+    // Remote WSL Configuration
+    "remote.WSL.fileWatcher.polling": true,
+    "remote.WSL.fileWatcher.pollingInterval": 5000,
+    "remote.WSL.useShellEnvironment": true,
+    
+    // File Associations
+    "files.associations": {
+      "*.mq4": "cpp",
+      "*.mq5": "cpp",
+      "docker-compose*.yml": "dockercompose"
+    },
+    
+    // Editor Configuration
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [88, 120],
+    
+    // Files to exclude from watcher (improves performance on WSL)
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/node_modules/**": true,
+      "**/.venv/**": true,
+      "**/venv/**": true,
+      "**/__pycache__/**": true,
+      "**/.pytest_cache/**": true,
+      "**/dist/**": true,
+      "**/build/**": true
+    },
+    
+    // Search exclusions
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/.venv": true,
+      "**/venv": true,
+      "**/__pycache__": true,
+      "**/.pytest_cache": true
+    },
+    
+    // GitHub Pull Requests
+    "githubPullRequests.ignoredPullRequestBranches": [
+      "main"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "ms-azuretools.vscode-docker",
+      "ms-vscode-remote.remote-wsl",
+      "ms-vscode-remote.remote-containers",
+      "github.copilot",
+      "github.copilot-chat",
+      "ms-azuretools.vscode-azurecontainerapps",
+      "googlecloudtools.cloudcode",
+      "amazonwebservices.amazon-q-vscode",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "ms-toolsai.jupyter",
+      "redhat.vscode-yaml",
+      "tamasfe.even-better-toml"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Start GenX API (WSL)",
+        "type": "shell",
+        "command": "python3",
+        "args": ["-m", "uvicorn", "api.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Start Client Dev Server (WSL)",
+        "type": "shell",
+        "command": "npm",
+        "args": ["run", "dev"],
+        "options": {
+          "cwd": "${workspaceFolder}/client"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Docker Build (WSL)",
+        "type": "shell",
+        "command": "docker",
+        "args": ["build", "-t", "genx-fx", "."],
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Docker Compose Up (WSL)",
+        "type": "shell",
+        "command": "docker-compose",
+        "args": ["-f", "docker-compose.wsl.yml", "up", "-d"],
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Docker Compose Down (WSL)",
+        "type": "shell",
+        "command": "docker-compose",
+        "args": ["-f", "docker-compose.wsl.yml", "down"],
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Install Python Dependencies (WSL)",
+        "type": "shell",
+        "command": "pip3",
+        "args": ["install", "-r", "requirements.txt"],
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Install Node Dependencies (WSL)",
+        "type": "shell",
+        "command": "npm",
+        "args": ["install"],
+        "options": {
+          "cwd": "${workspaceFolder}/client"
+        },
+        "group": "build",
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug GenX API (WSL)",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/api/main.py",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        }
+      },
+      {
+        "name": "Debug Main Script (WSL)",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/main.py",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        }
+      },
+      {
+        "name": "Docker: Python (WSL)",
+        "type": "docker",
+        "request": "launch",
+        "preLaunchTask": "docker-run: debug",
+        "python": {
+          "pathMappings": [
+            {
+              "localRoot": "${workspaceFolder}",
+              "remoteRoot": "/app"
+            }
+          ],
+          "projectType": "fastapi"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  // Python Settings for WSL
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/core",
+    "${workspaceFolder}/api",
+    "${workspaceFolder}/services"
+  ],
+  
+  // Docker Settings for WSL
+  "docker.dockerPath": "docker",
+  "docker.host": "unix:///var/run/docker.sock",
+  "docker.environment": {
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
+  },
+  
+  // Terminal Settings for WSL
+  "terminal.integrated.defaultProfile.windows": "WSL",
+  
+  // Remote WSL Settings
+  "remote.WSL.fileWatcher.polling": true,
+  "remote.WSL.fileWatcher.pollingInterval": 5000,
+  
+  // Performance optimizations for WSL
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true
+  }
+}
