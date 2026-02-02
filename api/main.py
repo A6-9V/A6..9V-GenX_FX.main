@@ -104,6 +104,24 @@ async def lifespan(app: FastAPI):
                 timestamp TEXT
             )
             """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trading_pairs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT UNIQUE NOT NULL,
+                base_currency TEXT NOT NULL,
+                quote_currency TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT
+            )
+            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                is_active INTEGER DEFAULT 1
+            )
+            """)
         conn.commit()
         conn.close()
     except Exception as e:
