@@ -43,6 +43,70 @@ predictor = None
 scalping_service = None
 MONITORING_DASHBOARD_CACHE = None
 
+# --- Redis Configuration ---
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+CACHE_DURATION_SECONDS = 5
+
+
+def setup_database():
+    """
+    Ensures that all required database tables exist.
+    This is called at module level to ensure tests (which might not trigger lifespan)
+    have a valid database schema to work with.
+    """
+    try:
+        conn = sqlite3.connect("genxdb_fx.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payment_methods (
+                id INTEGER PRIMARY KEY,
+                cardholder_name TEXT,
+                masked_card_number TEXT
+            )
+            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS account_performance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_number TEXT NOT NULL,
+                balance REAL,
+                equity REAL,
+                total_profit REAL,
+                total_loss REAL,
+                pnl REAL,
+                profit_factor REAL,
+                currency TEXT DEFAULT 'USD',
+                timestamp TEXT
+            )
+            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trading_pairs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT UNIQUE NOT NULL,
+                base_currency TEXT NOT NULL,
+                quote_currency TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT
+            )
+            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                is_active INTEGER DEFAULT 1
+            )
+            """)
+        conn.commit()
+        conn.close()
+        logging.info("Database tables initialized successfully.")
+    except Exception as e:
+        logging.error(f"Failed to setup database: {e}")
+
+
+# Initialize database on module import
+setup_database()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,36 +142,6 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logging.error(f"Failed to initialize ScalpingService: {e}")
             scalping_service = None
-
-    # --- Database Setup (Billing) ---
-    try:
-        conn = sqlite3.connect("genxdb_fx.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS payment_methods (
-                id INTEGER PRIMARY KEY,
-                cardholder_name TEXT,
-                masked_card_number TEXT
-            )
-            """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS account_performance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_number TEXT NOT NULL,
-                balance REAL,
-                equity REAL,
-                total_profit REAL,
-                total_loss REAL,
-                pnl REAL,
-                profit_factor REAL,
-                currency TEXT DEFAULT 'USD',
-                timestamp TEXT
-            )
-            """)
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logging.error(f"Failed to setup database: {e}")
 
     # --- Dashboard Cache Setup ---
     try:
@@ -234,19 +268,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-# --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
-# To avoid frequent and slow disk I/O on the monitoring endpoint, we use a
-# Redis cache. This ensures that the cache is shared across all worker
-# processes, which is not the case with a simple in-memory global variable.
-# It also provides more robust caching with a configurable expiration time.
-#
-# The Redis connection details are retrieved from environment variables,
-# with sensible defaults for local development.
-# --------------------------------------------------------------------------
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
 
 # --- Set up basic logging ---
 logging.basicConfig(
