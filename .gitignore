@@ -186,6 +186,7 @@ config/*_credentials.json
 # API Keys and Secrets
 .env.*
 !.env.example
+amp_auth.json
 *_auth.json
 *_config.json
 !amp_config.json
