@@ -135,7 +135,14 @@ For more detailed information, please refer to the following guides in the repos
 -   **[SYSTEM_ARCHITECTURE_GUIDE.md](SYSTEM_ARCHITECTURE_GUIDE.md)**: An in-depth look at the system's design and architecture.
 -   **[API_KEY_SETUP.md](API_KEY_SETUP.md)**: Instructions for configuring the necessary API keys for all services.
 -   **[WHATSAPP_INTEGRATION_GUIDE.md](WHATSAPP_INTEGRATION_GUIDE.md)**: Guide for setting up WhatsApp notifications and group integration.
--   **[AWS_DEPLOYMENT_GUIDE.md](AWS_DEPLOYMENT_GUIDE.md)**: A step-by-step guide to deploying the platform on AWS.
+
+### 🚀 Deployment Guides
+
+-   **[DEPLOYMENT_SETUP_INSTRUCTIONS.md](DEPLOYMENT_SETUP_INSTRUCTIONS.md)**: **NEW!** Master guide for forge.mql5.io and VPS deployment
+-   **[docs/FORGE_MQL5_DEPLOYMENT.md](docs/FORGE_MQL5_DEPLOYMENT.md)**: Complete guide for forge.mql5.io integration with deploy keys
+-   **[docs/VPS_QUICK_START.md](docs/VPS_QUICK_START.md)**: Quick reference for rapid VPS deployment with Docker
+-   **[docs/REPOSITORY_SECRETS_SETUP.md](docs/REPOSITORY_SECRETS_SETUP.md)**: Comprehensive secrets and credentials configuration
+-   **[AWS_DEPLOYMENT_GUIDE.md](AWS_DEPLOYMENT_GUIDE.md)**: Step-by-step guide to deploying the platform on AWS
 
 ---
 
