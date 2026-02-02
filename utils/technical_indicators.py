@@ -58,13 +58,19 @@ class TechnicalIndicators:
                     # Exponential Moving Average
                     df[f"ema_{period}"] = df["close"].ewm(span=period).mean()
 
-                    # Weighted Moving Average (Optimized)
-                    # The original pandas apply() method is slow. This implementation
-                    # uses numpy.convolve for a significant performance boost.
-                    weights = np.arange(1, period + 1)
-                    denominator = weights.sum()
+                    # Weighted Moving Average (Optimized & Fixed)
+                    # ---
+                    # ⚡ Bolt Optimization:
+                    # 1. Corrected reversed weights. np.convolve flips the kernel, so
+                    #    we pass reversed weights [period, ..., 1] to get [1, ..., period].
+                    # 2. Used constant-time formula for denominator (n*(n+1)/2).
+                    # 3. Used raw values to bypass Series overhead.
+                    # ---
+                    weights = np.arange(period, 0, -1)
+                    denominator = (period * (period + 1)) / 2
                     wma_values = (
-                        np.convolve(df["close"], weights, mode="valid") / denominator
+                        np.convolve(df["close"].values, weights, mode="valid")
+                        / denominator
                     )
 
                     # Align the convolution output with the DataFrame index
@@ -124,15 +130,15 @@ class TechnicalIndicators:
             # Commodity Channel Index (CCI)
             if len(df) >= 20:
                 window = 20
+                # ⚡ Bolt Optimization: Pre-calculate typical price for reuse
                 typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                df["typical_price"] = typical_price
+
                 sma_tp = typical_price.rolling(window=window).mean()
 
                 # ---
                 # ⚡ Bolt Optimization: Vectorized Mean Deviation
-                # The original `rolling().apply()` is notoriously slow. This
-                # implementation uses a vectorized approach by creating a
-                # rolling view of the data with numpy strides. This avoids
-                # Python-level loops and is significantly faster.
+                # Reused sma_tp.values instead of recalculating rolling_mean.
                 # ---
                 typical_price_np = typical_price.to_numpy()
                 shape = (typical_price_np.shape[0] - window + 1, window)
@@ -141,10 +147,10 @@ class TechnicalIndicators:
                     typical_price_np, shape=shape, strides=strides
                 )
 
-                # Calculate rolling mean absolute deviation
-                rolling_mean = np.mean(rolling_windows, axis=1)
+                # Calculate rolling mean absolute deviation using pre-calculated sma_tp
+                rolling_mean_tp = sma_tp.values[window - 1 :]
                 rolling_mad_values = np.mean(
-                    np.abs(rolling_windows - rolling_mean[:, np.newaxis]), axis=1
+                    np.abs(rolling_windows - rolling_mean_tp[:, np.newaxis]), axis=1
                 )
 
                 mean_dev = pd.Series(rolling_mad_values, index=df.index[window - 1 :])
@@ -242,13 +248,13 @@ class TechnicalIndicators:
 
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
-                volume_direction = np.where(
-                    price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
-                )
-                df["obv"] = volume_direction.cumsum()
+                # ⚡ Bolt Optimization: Faster OBV calculation using np.sign and raw values
+                # Replaced nested np.where and Series diff() with a more efficient vectorized approach.
+                price_diff = np.diff(df["close"].values)
+                # volume_direction should have the same length as df
+                volume_direction = np.zeros(len(df))
+                volume_direction[1:] = np.sign(price_diff) * df["volume"].values[1:]
+                df["obv"] = np.cumsum(volume_direction)
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
@@ -341,7 +347,12 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
+                # ⚡ Bolt Optimization: Reuse typical_price if it was already calculated
+                if "typical_price" in df.columns:
+                    df["pivot"] = df["typical_price"]
+                else:
+                    df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
+
                 df["r1"] = 2 * df["pivot"] - df["low"]
                 df["s1"] = 2 * df["pivot"] - df["high"]
                 df["r2"] = df["pivot"] + (df["high"] - df["low"])
