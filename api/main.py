@@ -43,43 +43,18 @@ predictor = None
 scalping_service = None
 MONITORING_DASHBOARD_CACHE = None
 
+# --- Redis Configuration ---
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+CACHE_DURATION_SECONDS = 5
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global redis_client, predictor, MONITORING_DASHBOARD_CACHE, scalping_service
 
-    # --- Redis Setup ---
-    try:
-        redis_client = await redis.from_url(
-            f"redis://{REDIS_HOST}:{REDIS_PORT}",
-            encoding="utf-8",
-            decode_responses=True,
-        )
-        await redis_client.ping()
-        logging.info("Successfully connected to Redis.")
-    except Exception as e:
-        logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
-        redis_client = None
-
-    # --- AI Predictor Setup ---
-    if has_ai_models:
-        try:
-            predictor = EnsemblePredictor()
-            logging.info("EnsemblePredictor initialized.")
-        except Exception as e:
-            logging.error(f"Failed to initialize EnsemblePredictor: {e}")
-            predictor = None
-
-    # --- Scalping Service Setup ---
-    if has_scalping_service:
-        try:
-            scalping_service = ScalpingService()
-            logging.info("ScalpingService initialized.")
-        except Exception as e:
-            logging.error(f"Failed to initialize ScalpingService: {e}")
-            scalping_service = None
-
-    # --- Database Setup (Billing) ---
+def setup_database():
+    """
+    Ensures that all required database tables exist.
+    This is called at module level to ensure tests (which might not trigger lifespan)
+    have a valid database schema to work with.
+    """
     try:
         conn = sqlite3.connect("genxdb_fx.db")
         cursor = conn.cursor()
@@ -124,8 +99,49 @@ async def lifespan(app: FastAPI):
             """)
         conn.commit()
         conn.close()
+        logging.info("Database tables initialized successfully.")
     except Exception as e:
         logging.error(f"Failed to setup database: {e}")
+
+
+# Initialize database on module import
+setup_database()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global redis_client, predictor, MONITORING_DASHBOARD_CACHE, scalping_service
+
+    # --- Redis Setup ---
+    try:
+        redis_client = await redis.from_url(
+            f"redis://{REDIS_HOST}:{REDIS_PORT}",
+            encoding="utf-8",
+            decode_responses=True,
+        )
+        await redis_client.ping()
+        logging.info("Successfully connected to Redis.")
+    except Exception as e:
+        logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
+        redis_client = None
+
+    # --- AI Predictor Setup ---
+    if has_ai_models:
+        try:
+            predictor = EnsemblePredictor()
+            logging.info("EnsemblePredictor initialized.")
+        except Exception as e:
+            logging.error(f"Failed to initialize EnsemblePredictor: {e}")
+            predictor = None
+
+    # --- Scalping Service Setup ---
+    if has_scalping_service:
+        try:
+            scalping_service = ScalpingService()
+            logging.info("ScalpingService initialized.")
+        except Exception as e:
+            logging.error(f"Failed to initialize ScalpingService: {e}")
+            scalping_service = None
 
     # --- Dashboard Cache Setup ---
     try:
@@ -252,19 +268,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-# --- Performance Optimization: Redis Cache for Monitoring Endpoint ---
-# To avoid frequent and slow disk I/O on the monitoring endpoint, we use a
-# Redis cache. This ensures that the cache is shared across all worker
-# processes, which is not the case with a simple in-memory global variable.
-# It also provides more robust caching with a configurable expiration time.
-#
-# The Redis connection details are retrieved from environment variables,
-# with sensible defaults for local development.
-# --------------------------------------------------------------------------
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-CACHE_DURATION_SECONDS = 5  # Cache metrics for 5 seconds
 
 # --- Set up basic logging ---
 logging.basicConfig(
