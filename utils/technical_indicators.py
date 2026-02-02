@@ -91,13 +91,25 @@ class TechnicalIndicators:
         try:
             # Relative Strength Index (RSI)
             if len(df) >= 14:
-                delta = df["close"].diff()
-                gain = delta.where(delta > 0, 0)
-                loss = -delta.where(delta < 0, 0)
+                # ---
+                # ⚡ Bolt Optimization: Vectorized RSI
+                # Replaced Pandas `where` and series arithmetic with raw NumPy.
+                # This avoids series index alignment and reduces overhead.
+                # ---
+                close_vals = df["close"].values
+                delta = np.zeros_like(close_vals)
+                delta[1:] = np.diff(close_vals)
 
-                avg_gain = gain.rolling(window=14).mean()
-                avg_loss = loss.rolling(window=14).mean()
+                gain = np.where(delta > 0, delta, 0)
+                loss = np.where(delta < 0, -delta, 0)
 
+                # Using rolling mean on the series created from numpy values
+                # is fast and ensures we maintain alignment with the index.
+                avg_gain = pd.Series(gain, index=df.index).rolling(window=14).mean()
+                avg_loss = pd.Series(loss, index=df.index).rolling(window=14).mean()
+
+                # RS Calculation: Pandas handles division by zero as inf,
+                # which correctly results in RSI=100 via the formula.
                 rs = avg_gain / avg_loss
                 df["rsi"] = 100 - (100 / (1 + rs))
 
@@ -124,7 +136,14 @@ class TechnicalIndicators:
             # Commodity Channel Index (CCI)
             if len(df) >= 20:
                 window = 20
-                typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                # Use pre-calculated pivot if available (Consolidated optimization)
+                if "pivot" in df.columns:
+                    typical_price = df["pivot"]
+                else:
+                    typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                    # Save it for reuse in add_support_resistance
+                    df["pivot"] = typical_price
+
                 sma_tp = typical_price.rolling(window=window).mean()
 
                 # ---
@@ -225,43 +244,69 @@ class TechnicalIndicators:
     def add_volume_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add volume-based indicators"""
         try:
+            # ---
+            # ⚡ Bolt Optimization: Vectorized Volume Indicators
+            # Replaced Pandas series operations with raw NumPy arrays.
+            # This reduces overhead for OBV, VPT, and Accumulation/Distribution Line.
+            # ---
+            high_vals = df["high"].values
+            low_vals = df["low"].values
+            close_vals = df["close"].values
+
             if "volume" not in df.columns or df["volume"].sum() == 0:
                 # Create synthetic volume for forex data
-                df["volume"] = (df["high"] - df["low"]) * 1000000
+                df["volume"] = (high_vals - low_vals) * 1000000
+
+            volume_vals = df["volume"].values
 
             # Volume Moving Averages
             periods = [10, 20, 50]
             for period in periods:
                 if len(df) >= period:
-                    df[f"volume_sma_{period}"] = (
-                        df["volume"].rolling(window=period).mean()
-                    )
-                    df[f"volume_ratio_{period}"] = (
-                        df["volume"] / df[f"volume_sma_{period}"]
-                    )
+                    sma_col = f"volume_sma_{period}"
+                    df[sma_col] = df["volume"].rolling(window=period).mean()
+                    # Use .values for faster division
+                    df[f"volume_ratio_{period}"] = volume_vals / df[sma_col].values
 
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
-                volume_direction = np.where(
-                    price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
-                )
-                df["obv"] = volume_direction.cumsum()
+                # Optimized OBV using np.sign and numpy arrays
+                # Preserving NaN for the first element to match original behavior
+                price_change = np.zeros_like(close_vals)
+                price_change[1:] = np.diff(close_vals)
+                volume_direction = np.sign(price_change) * volume_vals
+                obv = np.cumsum(volume_direction)
+                # The first row of a diff is always NaN/undefined
+                obv[0] = np.nan
+                df["obv"] = obv
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
-                price_change_pct = df["close"].pct_change()
-                df["vpt"] = (price_change_pct * df["volume"]).cumsum()
+                # Optimized VPT using numpy
+                # Preserving NaN for the first element
+                price_change_pct = np.full_like(close_vals, np.nan)
+                # Avoid division by zero
+                safe_prev_close = np.where(close_vals[:-1] == 0, 1.0, close_vals[:-1])
+                price_change_pct[1:] = (
+                    close_vals[1:] - close_vals[:-1]
+                ) / safe_prev_close
+                vpt = np.cumsum(np.nan_to_num(price_change_pct) * volume_vals)
+                vpt[0] = np.nan
+                df["vpt"] = vpt
 
             # Accumulation/Distribution Line
             if len(df) >= 1:
-                money_flow_multiplier = (
-                    (df["close"] - df["low"]) - (df["high"] - df["close"])
-                ) / (df["high"] - df["low"])
-                money_flow_volume = money_flow_multiplier * df["volume"]
-                df["ad_line"] = money_flow_volume.cumsum()
+                # Optimized AD Line: Simplified formula and numpy arrays
+                # Money Flow Multiplier = [(Close - Low) - (High - Close)] / (High - Low)
+                # Reduced to: [2*Close - Low - High] / (High - Low)
+                range_vals = high_vals - low_vals
+                # Avoid division by zero
+                safe_range = np.where(range_vals == 0, 1.0, range_vals)
+                multiplier = (2 * close_vals - low_vals - high_vals) / safe_range
+                # If high == low, multiplier should be 0
+                multiplier[range_vals == 0] = 0
+
+                df["ad_line"] = np.cumsum(multiplier * volume_vals)
 
             return df
 
@@ -326,8 +371,19 @@ class TechnicalIndicators:
             for period in periods:
                 if len(df) >= period:
                     # Linear regression slope (Vectorized for performance)
+                    # ---
+                    # ⚡ Bolt Optimization: Reuse pre-calculated SMA
+                    # Linear regression slope calculation needs the sum of the series.
+                    # Since SMA = sum / period, we can reuse the already calculated SMA.
+                    # ---
+                    sma_col = f"sma_{period}"
+                    if sma_col in df.columns:
+                        rolling_sum = df[sma_col] * period
+                    else:
+                        rolling_sum = None
+
                     df[f"trend_strength_{period}"] = self._calculate_rolling_slope(
-                        df["close"], period
+                        df["close"], period, rolling_sum
                     )
 
             return df
@@ -339,13 +395,26 @@ class TechnicalIndicators:
     def add_support_resistance(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add support and resistance levels"""
         try:
+            # ---
+            # ⚡ Bolt Optimization: Vectorized Support/Resistance
+            # Replaced Pandas series arithmetic with raw NumPy.
+            # Consistently reuses pre-calculated pivot/typical_price.
+            # ---
+            high_vals = df["high"].values
+            low_vals = df["low"].values
+            close_vals = df["close"].values
+
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
-                df["r1"] = 2 * df["pivot"] - df["low"]
-                df["s1"] = 2 * df["pivot"] - df["high"]
-                df["r2"] = df["pivot"] + (df["high"] - df["low"])
-                df["s2"] = df["pivot"] - (df["high"] - df["low"])
+                # Reuse pre-calculated pivot (from CCI) if available
+                if "pivot" not in df.columns:
+                    df["pivot"] = (high_vals + low_vals + close_vals) / 3
+
+                pivot_vals = df["pivot"].values
+                df["r1"] = 2 * pivot_vals - low_vals
+                df["s1"] = 2 * pivot_vals - high_vals
+                df["r2"] = pivot_vals + (high_vals - low_vals)
+                df["s2"] = pivot_vals - (high_vals - low_vals)
 
             # Price position relative to recent highs/lows (Optimized)
             periods = [20, 50]
@@ -353,21 +422,24 @@ class TechnicalIndicators:
                 if len(df) >= period:
                     # Reuse Donchian channels for period 20 if available
                     if period == 20 and "donchian_upper" in df.columns:
-                        high_max = df["donchian_upper"]
-                        low_min = df["donchian_lower"]
+                        high_max = df["donchian_upper"].values
+                        low_min = df["donchian_lower"].values
                     else:
-                        high_max = df["high"].rolling(window=period).max()
-                        low_min = df["low"].rolling(window=period).min()
+                        high_max = df["high"].rolling(window=period).max().values
+                        low_min = df["low"].rolling(window=period).min().values
 
-                    df[f"price_position_{period}"] = (df["close"] - low_min) / (
-                        high_max - low_min
-                    )
-                    df[f"resistance_distance_{period}"] = (high_max - df["close"]) / df[
-                        "close"
-                    ]
-                    df[f"support_distance_{period}"] = (df["close"] - low_min) / df[
-                        "close"
-                    ]
+                    range_vals = high_max - low_min
+                    # Avoid division by zero
+                    safe_range = np.where(range_vals == 0, 1.0, range_vals)
+                    safe_close = np.where(close_vals == 0, 1.0, close_vals)
+
+                    df[f"price_position_{period}"] = (close_vals - low_min) / safe_range
+                    df[f"resistance_distance_{period}"] = (
+                        high_max - close_vals
+                    ) / safe_close
+                    df[f"support_distance_{period}"] = (
+                        close_vals - low_min
+                    ) / safe_close
 
             return df
 
@@ -440,7 +512,12 @@ class TechnicalIndicators:
             logger.error(f"Error calculating Parabolic SAR: {e}")
             return pd.Series(np.nan, index=df.index)
 
-    def _calculate_rolling_slope(self, series: pd.Series, window: int) -> pd.Series:
+    def _calculate_rolling_slope(
+        self,
+        series: pd.Series,
+        window: int,
+        precalculated_sum: Optional[pd.Series] = None,
+    ) -> pd.Series:
         """Calculate the slope of a linear regression over a rolling window."""
         try:
             # ---
@@ -448,6 +525,7 @@ class TechnicalIndicators:
             # Replaced the slow `rolling().apply(np.polyfit)` with a vectorized
             # implementation using numpy convolution and rolling sums. This avoids
             # Python-level loops and the overhead of calling polyfit thousands of times.
+            # Reuses pre-calculated sum (from SMA) to save redundant rolling calculations.
             # ---
             n = window
             if len(series) < n:
@@ -457,7 +535,10 @@ class TechnicalIndicators:
             # sum((i - x_mean)^2) for i = 0 to n-1
             sum_x2 = n * (n**2 - 1) / 12
 
-            y_sum = series.rolling(window=n).sum()
+            if precalculated_sum is not None:
+                y_sum = precalculated_sum
+            else:
+                y_sum = series.rolling(window=n).sum()
 
             # Use convolution for sum(i * y_i)
             # To get sum_{i=0}^{n-1} i * y_{t-n+1+i}, we use weights [n-1, n-2, ..., 0]

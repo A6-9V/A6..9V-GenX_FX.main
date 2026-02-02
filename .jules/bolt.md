@@ -21,3 +21,9 @@
 **Learning:** I identified a common performance anti-pattern where multiple technical indicators (e.g., Stochastic Oscillator, Williams %R, Bollinger Bands, and Support/Resistance) re-calculate the same rolling windows (min, max, mean, std) independently. This redundancy wastes CPU cycles, especially as the number of indicators grows.
 
 **Action:** I refactored `utils/technical_indicators.py` to calculate shared rolling windows once and reuse them. For example, rolling min/max for window 14 is now shared between Stochastic and Williams %R, and `sma_20`/`std_20` are shared between Bollinger Bands and Volatility Indicators. This optimization provides a ~10-15% speedup across the affected methods without changing the output logic.
+
+## 2025-02-12 - Vectorizing Volume and Support/Resistance Indicators
+
+**Learning:** I identified that indicators like OBV, VPT, and Support/Resistance were using Pandas Series arithmetic and `.where()` calls, which carry significant overhead for index alignment and validation. Additionally, redundant calculations of the same values (like the "pivot" or "typical price") were performed across different methods.
+
+**Action:** I vectorized the calculations for RSI, OBV, VPT, and AD Line using raw NumPy arrays, while ensuring NaN preservation for warmup periods. I also consolidated the "pivot" calculation between CCI and Support/Resistance, and optimized the Linear Regression Slope to reuse pre-calculated SMAs. These changes reduced redundant arithmetic and Pandas overhead, resulting in a cleaner and more efficient indicator suite.
