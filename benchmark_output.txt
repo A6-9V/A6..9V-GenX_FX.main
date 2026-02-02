@@ -1,0 +1,8 @@
+Starting benchmark for 100000 rows...
+add_moving_averages: 0.2006 seconds
+add_momentum_indicators: 0.1155 seconds
+add_volatility_indicators: 0.0413 seconds
+add_volume_indicators: 0.0199 seconds
+add_trend_indicators: 0.3255 seconds
+add_support_resistance: 0.0275 seconds
+Total time: 0.7304 seconds

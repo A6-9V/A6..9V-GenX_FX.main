@@ -1,5 +1,5 @@
-from pandas import Index
 import pandas._testing as tm
+from pandas import Index
 
 
 def test_astype_str_from_bytes():
