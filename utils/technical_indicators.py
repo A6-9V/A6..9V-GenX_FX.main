@@ -91,12 +91,21 @@ class TechnicalIndicators:
         try:
             # Relative Strength Index (RSI)
             if len(df) >= 14:
-                delta = df["close"].diff()
-                gain = delta.where(delta > 0, 0)
-                loss = -delta.where(delta < 0, 0)
+                # ---
+                # ⚡ Bolt Optimization: Vectorized RSI Calculation
+                # Replaced Pandas `where` and `diff` with NumPy equivalents
+                # to avoid Series overhead for intermediate calculations.
+                # ---
+                close_vals = df["close"].values
+                delta = np.zeros_like(close_vals)
+                delta[1:] = np.diff(close_vals)
 
-                avg_gain = gain.rolling(window=14).mean()
-                avg_loss = loss.rolling(window=14).mean()
+                gain = np.where(delta > 0, delta, 0)
+                loss = np.where(delta < 0, -delta, 0)
+
+                # Still use rolling mean from pandas for optimized window averaging
+                avg_gain = pd.Series(gain, index=df.index).rolling(window=14).mean()
+                avg_loss = pd.Series(loss, index=df.index).rolling(window=14).mean()
 
                 rs = avg_gain / avg_loss
                 df["rsi"] = 100 - (100 / (1 + rs))
@@ -124,7 +133,10 @@ class TechnicalIndicators:
             # Commodity Channel Index (CCI)
             if len(df) >= 20:
                 window = 20
-                typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                # Use pre-calculated typical_price if available
+                if "typical_price" not in df.columns:
+                    df["typical_price"] = (df["high"] + df["low"] + df["close"]) / 3
+                typical_price = df["typical_price"]
                 sma_tp = typical_price.rolling(window=window).mean()
 
                 # ---
@@ -185,11 +197,29 @@ class TechnicalIndicators:
                 # Calculate standard deviation once
                 std_20 = df["close"].rolling(window=20).std()
 
-                df["bb_upper"] = sma_20 + (2 * std_20)
-                df["bb_lower"] = sma_20 - (2 * std_20)
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Bollinger Bands
+                # Bypassing Series index alignment for band calculations.
+                # ---
+                sma_vals = sma_20.values
+                std_vals = std_20.values
+                close_vals = df["close"].values
+
+                df["bb_upper"] = sma_vals + (2 * std_vals)
+                df["bb_lower"] = sma_vals - (2 * std_vals)
                 df["bb_middle"] = sma_20
-                df["bb_width"] = df["bb_upper"] - df["bb_lower"]
-                df["bb_position"] = (df["close"] - df["bb_lower"]) / df["bb_width"]
+
+                upper = df["bb_upper"].values
+                lower = df["bb_lower"].values
+                width = upper - lower
+
+                df["bb_width"] = width
+                df["bb_position"] = np.divide(
+                    close_vals - lower,
+                    width,
+                    out=np.zeros_like(close_vals),
+                    where=width != 0,
+                )
             else:
                 std_20 = None
 
@@ -257,11 +287,25 @@ class TechnicalIndicators:
 
             # Accumulation/Distribution Line
             if len(df) >= 1:
-                money_flow_multiplier = (
-                    (df["close"] - df["low"]) - (df["high"] - df["close"])
-                ) / (df["high"] - df["low"])
-                money_flow_volume = money_flow_multiplier * df["volume"]
-                df["ad_line"] = money_flow_volume.cumsum()
+                # ---
+                # ⚡ Bolt Optimization: Vectorized AD Line
+                # Replaced multiple Series operations with raw NumPy arithmetic.
+                # ---
+                close = df["close"].values
+                low = df["low"].values
+                high = df["high"].values
+                volume = df["volume"].values
+
+                price_range = high - low
+                # Use np.divide with 'where' to safely handle high == low
+                money_flow_multiplier = np.divide(
+                    (close - low) - (high - close),
+                    price_range,
+                    out=np.zeros_like(close),
+                    where=price_range != 0,
+                )
+                money_flow_volume = money_flow_multiplier * volume
+                df["ad_line"] = np.cumsum(money_flow_volume)
 
             return df
 
@@ -341,11 +385,28 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
-                df["r1"] = 2 * df["pivot"] - df["low"]
-                df["s1"] = 2 * df["pivot"] - df["high"]
-                df["r2"] = df["pivot"] + (df["high"] - df["low"])
-                df["s2"] = df["pivot"] - (df["high"] - df["low"])
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Pivot Points
+                # Reusing typical_price if already calculated.
+                # Using raw numpy arrays for arithmetic is significantly faster
+                # than Series arithmetic as it avoids index alignment overhead.
+                # ---
+                if "typical_price" in df.columns:
+                    pivot = df["typical_price"].values
+                else:
+                    high_vals = df["high"].values
+                    low_vals = df["low"].values
+                    close_vals = df["close"].values
+                    pivot = (high_vals + low_vals + close_vals) / 3
+
+                df["pivot"] = pivot
+                low = df["low"].values
+                high = df["high"].values
+
+                df["r1"] = 2 * pivot - low
+                df["s1"] = 2 * pivot - high
+                df["r2"] = pivot + (high - low)
+                df["s2"] = pivot - (high - low)
 
             # Price position relative to recent highs/lows (Optimized)
             periods = [20, 50]
