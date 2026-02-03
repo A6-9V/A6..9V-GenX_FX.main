@@ -44,20 +44,26 @@ class FeatureEngineer:
         )
 
     def engineer_features_for_prediction(self, df: pd.DataFrame, sequence_length: int):
-        """Engineers features for a single prediction."""
+        """
+        Engineers features for a single prediction.
+        ⚡ Bolt Optimization: Uses only_last=True to skip redundant historical calculations.
+        """
         indicators = self._calculate_technical_indicators(df)
         patterns = self._detect_chart_patterns(df)
 
         features = np.hstack([indicators, patterns])
         features = self.scaler.transform(features)
 
-        price_sequences = self._create_price_sequences(df, sequence_length)
-        chart_patterns = self._create_chart_images(df, sequence_length)
+        # Optimization: Only calculate the last sequence/image needed for prediction
+        price_sequences = self._create_price_sequences(
+            df, sequence_length, only_last=True
+        )
+        chart_patterns = self._create_chart_images(df, sequence_length, only_last=True)
 
         return self.FeatureSet(
             technical_indicators=features[-1:],
-            price_sequences=price_sequences[-1:],
-            chart_patterns=chart_patterns[-1:],
+            price_sequences=price_sequences,
+            chart_patterns=chart_patterns,
             labels=None,
         )
 
@@ -204,51 +210,82 @@ class FeatureEngineer:
         return pattern_matrix
 
     def _create_price_sequences(
-        self, df: pd.DataFrame, sequence_length: int
+        self, df: pd.DataFrame, sequence_length: int, only_last: bool = False
     ) -> np.ndarray:
-        """Creates sequences of price data for LSTMs."""
+        """
+        Creates sequences of price data for LSTMs.
+        ⚡ Bolt Optimization: Vectorized using sliding_window_view and added only_last for inference.
+        """
         price_data = df[["open", "high", "low", "close", "volume"]].values
         scaled_data = self.price_scaler.fit_transform(price_data)
 
-        sequences = []
-        for i in range(len(scaled_data) - sequence_length + 1):
-            sequences.append(scaled_data[i : i + sequence_length])
+        if only_last:
+            # For a single prediction, we only need the most recent sequence.
+            # This avoids expensive windowing over the entire history.
+            return np.array([scaled_data[-sequence_length:]])
 
-        return np.array(sequences)
+        # Vectorized windowing using numpy stride tricks
+        # Shape: (N-W+1, W, 5)
+        return np.lib.stride_tricks.sliding_window_view(
+            scaled_data, window_shape=sequence_length, axis=0
+        ).transpose(0, 2, 1)
 
     def _create_chart_images(
-        self, df: pd.DataFrame, sequence_length: int
+        self, df: pd.DataFrame, sequence_length: int, only_last: bool = False
     ) -> np.ndarray:
-        """Create chart-like images for CNN model"""
-        # Create technical indicator plots as "images"
-        images = []
+        """
+        Create chart-like images for CNN model
+        ⚡ Bolt Optimization: Vectorized using sliding_window_view and added only_last for inference.
+        """
+        # Calculate indicators for imaging once
+        rsi = talib.RSI(df["close"], timeperiod=14).fillna(0.5).values
+        macd_line, _, macd_hist = talib.MACD(df["close"])
+        macd_line = macd_line.fillna(0).values
+        macd_hist = macd_hist.fillna(0).values
+        close = df["close"].values
 
-        # Calculate indicators for imaging
-        rsi = talib.RSI(df["close"], timeperiod=14)
-        macd_line, macd_signal, macd_hist = talib.MACD(df["close"])
+        if only_last:
+            # Matches original buggy behavior where the very last element of df was excluded.
+            # Original: range(W, len(df)) -> last i is len(df)-1 -> window is len(df)-1-W : len(df)-1
+            window_close = close[-1 - sequence_length : -1]
+            window_rsi = rsi[-1 - sequence_length : -1]
+            window_macd_line = macd_line[-1 - sequence_length : -1]
+            window_macd_hist = macd_hist[-1 - sequence_length : -1]
 
-        for i in range(sequence_length, len(df)):
-            # Create a "chart image" using multiple indicators
-            window_data = df.iloc[i - sequence_length : i]
-
-            # Normalize price data to 0-1 range for the window
-            price_norm = (window_data["close"] - window_data["close"].min()) / (
-                window_data["close"].max() - window_data["close"].min() + 1e-8
+            price_norm = (window_close - np.min(window_close)) / (
+                np.max(window_close) - np.min(window_close) + 1e-8
             )
 
-            # Create multi-channel "image"
-            channels = [
-                price_norm.values,
-                rsi[i - sequence_length : i].fillna(0.5),
-                macd_line[i - sequence_length : i].fillna(0),
-                macd_hist[i - sequence_length : i].fillna(0),
-            ]
+            image = np.column_stack(
+                [price_norm, window_rsi, window_macd_line, window_macd_hist]
+            )
+            return np.array([image])
 
-            # Stack channels to create a 2D image-like structure
-            image = np.column_stack(channels)
-            images.append(image)
+        # Vectorized implementation for training/bulk processing
+        # Note: We take [:-1] to exactly match the original iterative behavior which
+        # excluded the latest price point in the chart images.
+        close_windows = np.lib.stride_tricks.sliding_window_view(
+            close, window_shape=sequence_length
+        )[:-1]
+        rsi_windows = np.lib.stride_tricks.sliding_window_view(
+            rsi, window_shape=sequence_length
+        )[:-1]
+        macd_line_windows = np.lib.stride_tricks.sliding_window_view(
+            macd_line, window_shape=sequence_length
+        )[:-1]
+        macd_hist_windows = np.lib.stride_tricks.sliding_window_view(
+            macd_hist, window_shape=sequence_length
+        )[:-1]
 
-        return np.array(images)
+        # Vectorized normalization
+        mins = np.min(close_windows, axis=1, keepdims=True)
+        maxs = np.max(close_windows, axis=1, keepdims=True)
+        price_norm = (close_windows - mins) / (maxs - mins + 1e-8)
+
+        # Stack channels to create (N-W, W, 4) structure
+        return np.stack(
+            [price_norm, rsi_windows, macd_line_windows, macd_hist_windows], axis=-1
+        )
 
     def _generate_labels(
         self, df: pd.DataFrame, future_horizon=10, threshold=0.001
