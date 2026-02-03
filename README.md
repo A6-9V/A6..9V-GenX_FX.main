@@ -1,4 +1,4 @@
-# 🚀 GenX FX Trading Platform
+# 🚀 MAIN_FIRE_DOMSIN_WORKSPACE
 
 **An advanced, AI-powered platform for Forex, Cryptocurrency, and Gold trading.**
 
@@ -11,7 +11,7 @@
 
 ## 🎯 Overview
 
-GenX FX is a comprehensive, AI-powered trading system that combines machine learning, real-time market analysis, and automated execution capabilities. The platform is designed for both traders who want to use pre-built Expert Advisors (EAs) and for developers who want to build, test, and deploy their own automated strategies.
+MAIN_FIRE_DOMSIN_WORKSPACE is a comprehensive, AI-powered trading system that combines machine learning, real-time market analysis, and automated execution capabilities. The platform is designed for both traders who want to use pre-built Expert Advisors (EAs) and for developers who want to build, test, and deploy their own automated strategies.
 
 ## ✨ Key Features
 
@@ -28,7 +28,7 @@ GenX FX is a comprehensive, AI-powered trading system that combines machine lear
 
 ## 🚀 Getting Started
 
-There are two main ways to get started with GenX FX, depending on your goals.
+There are two main ways to get started with MAIN_FIRE_DOMSIN_WORKSPACE, depending on your goals.
 
 ### For Traders: Using a Pre-Built Expert Advisor
 
@@ -88,7 +88,7 @@ This option allows you to run the entire backend, API, and AI models for develop
 
 ## 🏗️ System Architecture
 
-The GenX FX platform is a monorepo containing several key components:
+The MAIN_FIRE_DOMSIN_WORKSPACE platform is a monorepo containing several key components:
 
 -   **`api/`**: The main backend powered by **FastAPI**. It serves REST endpoints for trading, predictions, and system management.
 -   **`core/`**: The core trading logic, including strategies, indicators, pattern detection, risk management, and the main trading engine.
