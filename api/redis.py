@@ -6,6 +6,7 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 
 redis_client = None
 
+
 async def init_redis():
     global redis_client
     try:
@@ -20,7 +21,8 @@ async def init_redis():
         redis_client = None
         return None
 
+
 async def close_redis():
     global redis_client
     if redis_client:
-        await redis_client.close()
+        await redis_client.aclose()
