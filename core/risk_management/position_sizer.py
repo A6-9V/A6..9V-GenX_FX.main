@@ -122,6 +122,7 @@ class PositionSizer:
         stop_loss: float,
         confidence: float = 1.0,
         current_positions: int = 0,
+        tick_value: float = 1.0,
     ) -> PositionInfo:
         """
         Calculates the optimal position size based on risk management rules.
@@ -165,8 +166,10 @@ class PositionSizer:
             # Calculate risk amount in account currency
             risk_amount = self.account_balance * final_risk
 
-            # Calculate position size
-            position_size = risk_amount / price_difference
+            # Calculate position size using Percentage Risk Pricing formula
+            # Lot Size = (Account Balance * Risk %) / (Stop Loss Distance * Tick Value)
+            # Note: price_difference is the Stop Loss Distance
+            position_size = risk_amount / (price_difference * tick_value)
 
             # Apply position size limits
             position_size = self._apply_position_limits(position_size, entry_price)

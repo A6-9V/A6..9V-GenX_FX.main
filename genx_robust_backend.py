@@ -15,7 +15,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-import requests
+import aiohttp
+
+from utils.retry_handler import retry_async
 
 # Add the api directory to Python path
 sys.path.append(str(Path(__file__).parent / "api"))
@@ -90,33 +92,35 @@ class GenXRobustBackend:
             logger.error(f"Failed to initialize backend service: {e}")
             return False
 
+    @retry_async(max_retries=3)
     async def test_connections(self):
         """
         Tests the connections to the VPS and the local API.
         """
-        # Test VPS connection
-        try:
-            response = requests.get(f"{self.vps_url}/health", timeout=5)
-            if response.status_code == 200:
-                self.vps_connected = True
-                logger.info(f"VPS connection successful: {self.vps_url}")
-            else:
-                logger.warning(f"VPS responded with status {response.status_code}")
-        except Exception as e:
-            logger.warning(f"VPS connection failed: {e}")
+        async with aiohttp.ClientSession() as session:
+            # Test VPS connection
+            try:
+                async with session.get(f"{self.vps_url}/health", timeout=5) as response:
+                    if response.status == 200:
+                        self.vps_connected = True
+                        logger.info(f"VPS connection successful: {self.vps_url}")
+                    else:
+                        logger.warning(f"VPS responded with status {response.status}")
+            except Exception as e:
+                logger.warning(f"VPS connection failed: {e}")
 
-        # Test local API connection
-        try:
-            response = requests.get(f"{self.local_api_url}/health", timeout=3)
-            if response.status_code == 200:
-                self.local_api_connected = True
-                logger.info(f"Local API connection successful: {self.local_api_url}")
-            else:
-                logger.warning(
-                    f"Local API responded with status {response.status_code}"
-                )
-        except Exception as e:
-            logger.warning(f"Local API connection failed: {e}")
+            # Test local API connection
+            try:
+                async with session.get(f"{self.local_api_url}/health", timeout=3) as response:
+                    if response.status == 200:
+                        self.local_api_connected = True
+                        logger.info(f"Local API connection successful: {self.local_api_url}")
+                    else:
+                        logger.warning(
+                            f"Local API responded with status {response.status}"
+                        )
+            except Exception as e:
+                logger.warning(f"Local API connection failed: {e}")
 
     def generate_gold_signal(self, pair: str) -> Dict[str, Any]:
         """
@@ -210,6 +214,7 @@ class GenXRobustBackend:
 
         return signals
 
+    @retry_async(max_retries=3)
     async def send_signals(self, signals: List[Dict[str, Any]]) -> bool:
         """
         Sends the generated signals to the VPS and local API, and saves them to a CSV file.
@@ -244,49 +249,48 @@ class GenXRobustBackend:
 
             logger.info(f"Saved {len(signals)} signals to MT4_Signals.csv")
 
-            # Send to VPS if connected
-            if self.vps_connected:
-                try:
-                    response = requests.post(
-                        f"{self.vps_url}/api/signals",
-                        json={
-                            "signals": signals,
-                            "timestamp": datetime.now().isoformat(),
-                            "source": "genx_robust_backend",
-                        },
-                        timeout=5,
-                    )
+            async with aiohttp.ClientSession() as session:
+                # Send to VPS if connected
+                if self.vps_connected:
+                    try:
+                        async with session.post(
+                            f"{self.vps_url}/api/signals",
+                            json={
+                                "signals": signals,
+                                "timestamp": datetime.now().isoformat(),
+                                "source": "genx_robust_backend",
+                            },
+                            timeout=5,
+                        ) as response:
+                            if response.status == 200:
+                                logger.info(f"Sent {len(signals)} signals to VPS")
+                            else:
+                                logger.warning(
+                                    f"VPS responded with status {response.status}"
+                                )
 
-                    if response.status_code == 200:
-                        logger.info(f"Sent {len(signals)} signals to VPS")
-                    else:
-                        logger.warning(
-                            f"VPS responded with status {response.status_code}"
-                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to send to VPS: {e}")
+                        self.vps_connected = False
 
-                except Exception as e:
-                    logger.warning(f"Failed to send to VPS: {e}")
-                    self.vps_connected = False
+                # Send to local API if connected
+                if self.local_api_connected:
+                    try:
+                        async with session.post(
+                            f"{self.local_api_url}/api/v1/predictions",
+                            json={"signals": signals},
+                            timeout=3,
+                        ) as response:
+                            if response.status == 200:
+                                logger.info(f"Sent {len(signals)} signals to local API")
+                            else:
+                                logger.warning(
+                                    f"Local API responded with status {response.status}"
+                                )
 
-            # Send to local API if connected
-            if self.local_api_connected:
-                try:
-                    response = requests.post(
-                        f"{self.local_api_url}/api/v1/predictions",
-                        json={"signals": signals},
-                        timeout=3,
-                    )
-
-                    if response.status_code == 200:
-                        logger.info(f"Sent {len(signals)} signals to local API")
-                    else:
-                        logger.warning(
-                            f"Local API responded with status {response.status_code}"
-                        )
-
-                except Exception as e:
-                    logger.warning(f"Failed to send to local API: {e}")
-                    self.local_api_connected = False
+                    except Exception as e:
+                        logger.warning(f"Failed to send to local API: {e}")
+                        self.local_api_connected = False
 
             return True
 
