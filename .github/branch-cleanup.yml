@@ -21,7 +21,7 @@ jobs:
           git fetch --all --prune
           
           echo "Finding merged branches..."
-          merged_branches=$(git branch -r --merged origin/main | grep -v "main\|develop\|HEAD" | sed 's/origin\///' || true)
+          merged_branches=$(git branch -r --merged origin/main | grep -vE "(main|develop|HEAD)" | sed 's/origin\///' || true)
           
           if [ -z "$merged_branches" ]; then
             echo "No merged branches to delete"
