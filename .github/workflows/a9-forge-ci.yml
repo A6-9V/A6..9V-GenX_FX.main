@@ -1,0 +1,39 @@
+name: A9 Forge CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  forge-ci:
+    name: A9 Forge CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: A9 Forge CI
+        if: ${{ secrets.FORGE_EMAIL != '' && secrets.FORGE_API_TOKEN != '' }}
+        uses: wjkennedy/a9-forge-gh-action@3
+        env:
+          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+        with:
+          forge-cli-version: latest
+          usage-analytics: true
+          environment: development
+          deploy: true
+
+      - name: Report Missing Secrets
+        if: ${{ secrets.FORGE_EMAIL == '' || secrets.FORGE_API_TOKEN == '' }}
+        run: |
+          echo "::warning::FORGE_EMAIL or FORGE_API_TOKEN secrets are missing. Skipping A9 Forge CI."
+          echo "Please add these secrets to your repository settings to enable Forge deployment."
+          echo "Refer to wjkennedy/a9-forge-gh-action for more information."
