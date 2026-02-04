@@ -21,3 +21,15 @@
 **Learning:** I identified a common performance anti-pattern where multiple technical indicators (e.g., Stochastic Oscillator, Williams %R, Bollinger Bands, and Support/Resistance) re-calculate the same rolling windows (min, max, mean, std) independently. This redundancy wastes CPU cycles, especially as the number of indicators grows.
 
 **Action:** I refactored `utils/technical_indicators.py` to calculate shared rolling windows once and reuse them. For example, rolling min/max for window 14 is now shared between Stochastic and Williams %R, and `sma_20`/`std_20` are shared between Bollinger Bands and Volatility Indicators. This optimization provides a ~10-15% speedup across the affected methods without changing the output logic.
+
+## 2025-05-15 - Broad Vectorization of Technical Indicators
+
+**Learning:** I identified that several core indicators (Pivot Points, OBV, VPT, AD Line, and RSI) were still relying on Pandas Series arithmetic, which introduces significant overhead due to index alignment and metadata validation. While single operations are fast, the cumulative effect in a hot path like signal generation is measurable.
+
+**Action:** I converted these remaining indicators to use raw NumPy arrays (`.values`) for all intermediate arithmetic. Specifically:
+- Pivot Points now use raw array math.
+- OBV uses `np.sign` and `np.diff` on raw arrays.
+- AD Line uses a simplified vectorized formula with zero-division handling.
+- RSI uses raw arrays for gain/loss calculation before passing to rolling windows.
+- WMA uses a constant-time formula for the denominator.
+These changes collectively ensure that the entire `TechnicalIndicators` suite is now fully vectorized, maximizing throughput for large backtests and high-frequency signal generation.
