@@ -46,18 +46,23 @@ class TestIndicators(unittest.TestCase):
         # Add assertions to check the output shapes and values
         # Note: calculate_macd currently returns pandas Series, so we check for that
         import pandas as pd
+
         self.assertTrue(isinstance(macd_line, (np.ndarray, pd.Series)))
         self.assertTrue(isinstance(signal_line, (np.ndarray, pd.Series)))
         self.assertTrue(isinstance(histogram, (np.ndarray, pd.Series)))
 
     def test_calculate_sma(self):
         sma = calculate_sma(self.prices, period=5)
-        self.assertEqual(len(sma), len(self.prices)) # Fixed: Pandas returns same length
+        self.assertEqual(
+            len(sma), len(self.prices)
+        )  # Fixed: Pandas returns same length
         # Add more specific assertions based on expected SMA values
 
     def test_calculate_ema(self):
         ema = calculate_ema(self.prices, period=5)
-        self.assertEqual(len(ema), len(self.prices)) # Fixed: Pandas returns same length
+        self.assertEqual(
+            len(ema), len(self.prices)
+        )  # Fixed: Pandas returns same length
         # Add more specific assertions based on expected EMA values
 
 
