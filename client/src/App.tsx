@@ -69,7 +69,7 @@ const Home = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">
-        🚀 GenX FX Trading Platform
+        🚀 MAIN_FIRE_DOMSIN_WORKSPACE Trading Platform
       </h1>
 
       <div className="flex justify-end mb-4">
