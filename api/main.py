@@ -79,57 +79,6 @@ async def lifespan(app: FastAPI):
             logging.error(f"Failed to initialize ScalpingService: {e}")
             scalping_service = None
 
-    # --- Database Setup (Billing) ---
-    try:
-        conn = sqlite3.connect("genxdb_fx.db")
-        cursor = conn.cursor()
-        # Create users table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                username TEXT NOT NULL UNIQUE,
-                email TEXT NOT NULL UNIQUE,
-                is_active INTEGER DEFAULT 1
-            )
-            """)
-
-        # Create trading_pairs table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS trading_pairs (
-                id INTEGER PRIMARY KEY,
-                symbol TEXT NOT NULL UNIQUE,
-                base_currency TEXT NOT NULL,
-                quote_currency TEXT NOT NULL,
-                is_active INTEGER DEFAULT 1
-            )
-            """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS payment_methods (
-                id INTEGER PRIMARY KEY,
-                cardholder_name TEXT,
-                masked_card_number TEXT
-            )
-            """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS account_performance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_number TEXT NOT NULL,
-                balance REAL,
-                equity REAL,
-                total_profit REAL,
-                total_loss REAL,
-                pnl REAL,
-                profit_factor REAL,
-                currency TEXT DEFAULT 'USD',
-                timestamp TEXT
-            )
-            """)
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logging.error(f"Failed to setup database: {e}")
-
     # --- Dashboard Cache Setup ---
     try:
         with open("monitoring_dashboard.html", "r") as f:
