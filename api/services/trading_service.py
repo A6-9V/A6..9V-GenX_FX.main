@@ -1,9 +1,9 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from utils.retry_handler import retry_async
-from typing import Any, Dict, List, Optional
 
 from ..models.schemas import (
     OrderRequest,

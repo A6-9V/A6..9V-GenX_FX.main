@@ -5,8 +5,9 @@ Simulates how the bot performs in unknown future market conditions.
 
 import unittest
 from datetime import datetime, timedelta
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 class WalkForwardOptimization(unittest.TestCase):
