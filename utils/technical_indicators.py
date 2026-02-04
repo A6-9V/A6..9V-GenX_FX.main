@@ -289,7 +289,7 @@ class TechnicalIndicators:
                 multiplier = np.where(
                     range_vals != 0,
                     (2 * close_vals - low_vals - high_vals) / range_vals,
-                    0
+                    0,
                 )
                 df["ad_line"] = (multiplier * volume_vals).cumsum()
 
