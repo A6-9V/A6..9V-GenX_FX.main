@@ -9,7 +9,7 @@ import joblib
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from ..config import settings
-from ..main import redis_client
+from ..redis import redis_client
 from ..models.schemas import (
     ModelMetrics,
     PredictionRequest,

@@ -208,7 +208,7 @@ from unittest.mock import AsyncMock
 
 
 @pytest.mark.asyncio
-@patch("api.main.redis_client", new_callable=AsyncMock)
+@patch("api.redis.redis_client", new_callable=AsyncMock)
 async def test_trading_pairs_caching(mock_redis_client):
     """
     Test that the /trading-pairs endpoint correctly uses Redis caching.

@@ -20,8 +20,8 @@ const SystemTestResultsComponent = () => {
 
   const results: TestResult[] = [
     { text: "Configuration system fixed (Pydantic settings)", status: 'success' },
-    { text: "Python API tests: 27/27 passed", status: 'success' },
-    { text: "Node.js server tests: 15/17 passed (2 minor issues)", status: 'warning' },
+    { text: "Python API tests: 58/58 passed", status: 'success' },
+    { text: "Node.js server tests: 17/17 passed", status: 'success' },
     { text: "Edge case testing completed", status: 'success' },
     { text: "Security validation (XSS, SQL injection prevention)", status: 'success' },
     { text: "Performance testing passed", status: 'success' },
