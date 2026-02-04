@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import pandas as pd
-import redis.asyncio as redis
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -35,10 +34,10 @@ except ImportError:
     logging.warning("Could not import ScalpingService.")
     has_scalping_service = False
 
+import api.redis
 from api.database import get_db
-from api.routers import performance
+from api.routers import market_data, performance, predictions, system, trading
 
-redis_client = None
 predictor = None
 scalping_service = None
 MONITORING_DASHBOARD_CACHE = None
@@ -46,20 +45,10 @@ MONITORING_DASHBOARD_CACHE = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client, predictor, MONITORING_DASHBOARD_CACHE, scalping_service
+    global predictor, MONITORING_DASHBOARD_CACHE, scalping_service
 
     # --- Redis Setup ---
-    try:
-        redis_client = await redis.from_url(
-            f"redis://{REDIS_HOST}:{REDIS_PORT}",
-            encoding="utf-8",
-            decode_responses=True,
-        )
-        await redis_client.ping()
-        logging.info("Successfully connected to Redis.")
-    except Exception as e:
-        logging.error(f"Could not connect to Redis: {e}. Caching will be disabled.")
-        redis_client = None
+    await api.redis.init_redis()
 
     # --- AI Predictor Setup ---
     if has_ai_models:
@@ -104,6 +93,24 @@ async def lifespan(app: FastAPI):
                 timestamp TEXT
             )
             """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trading_pairs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT UNIQUE NOT NULL,
+                base_currency TEXT,
+                quote_currency TEXT,
+                is_active INTEGER DEFAULT 1
+            )
+            """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT,
+                role TEXT DEFAULT 'user',
+                is_active INTEGER DEFAULT 1
+            )
+            """)
         conn.commit()
         conn.close()
     except Exception as e:
@@ -129,8 +136,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # --- Shutdown Logic ---
-    if redis_client:
-        await redis_client.close()
+    await api.redis.close_redis()
 
 
 app = FastAPI(
@@ -142,6 +148,10 @@ app = FastAPI(
 
 # Include Routers
 app.include_router(performance.router, prefix="/api/v1")
+app.include_router(market_data.router, prefix="/api/v1")
+app.include_router(predictions.router, prefix="/api/v1")
+app.include_router(system.router, prefix="/api/v1")
+app.include_router(trading.router, prefix="/api/v1")
 
 
 # --- Optimization: Define static root response as a constant ---
@@ -296,6 +306,8 @@ async def root():
     # --- Performance: Use Redis cache if available ---
     # This endpoint returns a static JSON response. Caching it reduces
     # processing time for frequent requests, such as from health checkers.
+    redis_client = api.redis.redis_client
+
     if redis_client:
         try:
             cached_root = await redis_client.get("root_cache")
@@ -329,6 +341,8 @@ async def health_check(db: sqlite3.Connection = Depends(get_db)):
               database connection is successful, 'unhealthy' otherwise.
     """
     # --- Performance: Use Redis cache if available ---
+    redis_client = api.redis.redis_client
+
     if redis_client:
         try:
             cached_health = await redis_client.get("health_check_status")
@@ -530,6 +544,8 @@ async def get_trading_pairs(
               message.
     """
     # --- Performance: Use Redis cache if available and no filter ---
+    redis_client = api.redis.redis_client
+
     if redis_client and not symbol:
         try:
             cached_pairs = await redis_client.get("trading_pairs_cache")
@@ -665,6 +681,8 @@ async def get_mt5_info():
         dict: A dictionary with MT5 login and server details.
     """
     # --- Performance: Use Redis cache for static data ---
+    redis_client = api.redis.redis_client
+
     if redis_client:
         try:
             cached_info = await redis_client.get("mt5_info_cache_v2")
@@ -705,6 +723,8 @@ async def get_monitoring_data():
         dict: A dictionary containing the latest system metrics, or an
               error message if the metrics are not available in the cache.
     """
+    redis_client = api.redis.redis_client
+
     if not redis_client:
         return {"error": "Redis is not connected; monitoring data is unavailable."}
 

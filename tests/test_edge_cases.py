@@ -18,6 +18,12 @@ from api.main import app
 client = TestClient(app)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def init_db():
+    with TestClient(app):
+        yield
+
+
 class TestAPIEndpoints:
     """Tests for existing and stable API endpoints."""
 
