@@ -138,6 +138,7 @@ For more detailed information, please refer to the following guides in the repos
 
 ### 🚀 Deployment Guides
 
+-   **[DEPLOYMENT_STRATEGY.md](DEPLOYMENT_STRATEGY.md)**: **IMPORTANT!** Primary CI/CD platform selection and avoiding redundant deployments
 -   **[DEPLOYMENT_SETUP_INSTRUCTIONS.md](DEPLOYMENT_SETUP_INSTRUCTIONS.md)**: **NEW!** Master guide for forge.mql5.io and VPS deployment
 -   **[docs/FORGE_MQL5_DEPLOYMENT.md](docs/FORGE_MQL5_DEPLOYMENT.md)**: Complete guide for forge.mql5.io integration with deploy keys
 -   **[docs/VPS_QUICK_START.md](docs/VPS_QUICK_START.md)**: Quick reference for rapid VPS deployment with Docker
