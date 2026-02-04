@@ -15,6 +15,7 @@ os.environ["REDIS_URL"] = "redis://localhost:6379"
 
 from api.main import app
 
+
 @pytest.fixture(autouse=True, scope="module")
 def run_lifespan():
     with TestClient(app):

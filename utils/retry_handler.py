@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional, Tuple, Type
 
 logger = logging.getLogger(__name__)
 
+
 def retry_async(
     exceptions: Tuple[Type[Exception], ...] = (Exception,),
     max_retries: int = 3,
@@ -28,6 +29,7 @@ def retry_async(
         backoff_factor: The multiplier for the delay after each retry.
         jitter: Whether to add random jitter to the delay.
     """
+
     def decorator(func: Callable):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
@@ -48,7 +50,7 @@ def retry_async(
 
                     wait_time = delay
                     if jitter:
-                        wait_time *= (0.5 + random.random())
+                        wait_time *= 0.5 + random.random()
 
                     logger.warning(
                         f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {e}. "
@@ -59,7 +61,9 @@ def retry_async(
                     delay *= backoff_factor
 
         return wrapper
+
     return decorator
+
 
 def mt5_retry(max_retries: int = 5, initial_delay: float = 0.5):
     """
@@ -68,7 +72,10 @@ def mt5_retry(max_retries: int = 5, initial_delay: float = 0.5):
     # Import here to avoid hard dependency if not used
     try:
         import MetaTrader5 as mt5
-        mt5_exceptions = (Exception,) # MT5 doesn't have specific exception classes in the python lib
+
+        mt5_exceptions = (
+            Exception,
+        )  # MT5 doesn't have specific exception classes in the python lib
     except ImportError:
         mt5_exceptions = (Exception,)
 
@@ -77,5 +84,5 @@ def mt5_retry(max_retries: int = 5, initial_delay: float = 0.5):
         max_retries=max_retries,
         initial_delay=initial_delay,
         backoff_factor=1.5,
-        jitter=True
+        jitter=True,
     )

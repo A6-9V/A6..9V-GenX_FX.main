@@ -97,14 +97,10 @@ class AITrainingService:
 
             # Create TTL index on validation_results (expire after 30 days)
             # 30 days = 30 * 24 * 60 * 60 seconds = 2,592,000 seconds
-            db.validation_results.create_index(
-                "timestamp", expireAfterSeconds=2592000
-            )
+            db.validation_results.create_index("timestamp", expireAfterSeconds=2592000)
 
             # Also create TTL index for predictions if it exists
-            db.predictions.create_index(
-                "timestamp", expireAfterSeconds=2592000
-            )
+            db.predictions.create_index("timestamp", expireAfterSeconds=2592000)
 
             logger.info("MongoDB TTL indexes created successfully (30-day retention)")
         except Exception as e:

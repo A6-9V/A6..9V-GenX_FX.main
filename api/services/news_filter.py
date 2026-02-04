@@ -13,6 +13,7 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+
 class NewsFilter:
     """
     A service that fetches economic calendar data and provides a flag to
@@ -25,7 +26,7 @@ class NewsFilter:
         self.last_update = None
         self.update_interval = 3600  # Update every hour
         self.pause_window_before = 30  # Minutes before event to pause
-        self.pause_window_after = 30   # Minutes after event to resume
+        self.pause_window_after = 30  # Minutes after event to resume
 
     async def update_calendar(self):
         """
@@ -44,14 +45,14 @@ class NewsFilter:
                     "title": "NFP (Non-Farm Payrolls)",
                     "impact": "HIGH",
                     "time": now + timedelta(minutes=45),
-                    "currency": "USD"
+                    "currency": "USD",
                 },
                 {
                     "title": "FOMC Meeting Minutes",
                     "impact": "HIGH",
                     "time": now + timedelta(hours=2),
-                    "currency": "USD"
-                }
+                    "currency": "USD",
+                },
             ]
 
             self.last_update = now
@@ -67,7 +68,11 @@ class NewsFilter:
         Returns:
             Tuple[bool, Optional[Dict[str, Any]]]: (True if trading should be paused, the event causing the pause)
         """
-        if not self.last_update or (datetime.now() - self.last_update).total_seconds() > self.update_interval:
+        if (
+            not self.last_update
+            or (datetime.now() - self.last_update).total_seconds()
+            > self.update_interval
+        ):
             await self.update_calendar()
 
         now = datetime.now()
@@ -81,7 +86,9 @@ class NewsFilter:
                 end_pause = event_time + timedelta(minutes=self.pause_window_after)
 
                 if start_pause <= now <= end_pause:
-                    logger.warning(f"Trading paused due to high-impact event: {event['title']} at {event_time}")
+                    logger.warning(
+                        f"Trading paused due to high-impact event: {event['title']} at {event_time}"
+                    )
                     return True, event
 
         return False, None
@@ -92,7 +99,9 @@ class NewsFilter:
         """
         now = datetime.now()
         upcoming = [
-            e for e in self.events
-            if e["impact"] == self.impact_threshold and now <= e["time"] <= now + timedelta(hours=hours)
+            e
+            for e in self.events
+            if e["impact"] == self.impact_threshold
+            and now <= e["time"] <= now + timedelta(hours=hours)
         ]
         return upcoming
