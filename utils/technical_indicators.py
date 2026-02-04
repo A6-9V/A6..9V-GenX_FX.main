@@ -61,8 +61,11 @@ class TechnicalIndicators:
                     # Weighted Moving Average (Optimized)
                     # The original pandas apply() method is slow. This implementation
                     # uses numpy.convolve for a significant performance boost.
+                    # ---
+                    # ⚡ Bolt Optimization: Constant-time denominator calculation
+                    # ---
                     weights = np.arange(1, period + 1)
-                    denominator = weights.sum()
+                    denominator = period * (period + 1) / 2
                     wma_values = (
                         np.convolve(df["close"], weights, mode="valid") / denominator
                     )
@@ -91,12 +94,18 @@ class TechnicalIndicators:
         try:
             # Relative Strength Index (RSI)
             if len(df) >= 14:
-                delta = df["close"].diff()
-                gain = delta.where(delta > 0, 0)
-                loss = -delta.where(delta < 0, 0)
+                # ---
+                # ⚡ Bolt Optimization: Vectorized RSI intermediate steps
+                # Using raw NumPy arrays for delta, gain, and loss to avoid
+                # Pandas overhead. Keeping rolling windows in Pandas for NaN handling.
+                # ---
+                close_vals = df["close"].values
+                delta = np.diff(close_vals, prepend=close_vals[0])
+                gain = np.where(delta > 0, delta, 0)
+                loss = np.where(delta < 0, -delta, 0)
 
-                avg_gain = gain.rolling(window=14).mean()
-                avg_loss = loss.rolling(window=14).mean()
+                avg_gain = pd.Series(gain, index=df.index).rolling(window=14).mean()
+                avg_loss = pd.Series(loss, index=df.index).rolling(window=14).mean()
 
                 rs = avg_gain / avg_loss
                 df["rsi"] = 100 - (100 / (1 + rs))
@@ -240,28 +249,49 @@ class TechnicalIndicators:
                         df["volume"] / df[f"volume_sma_{period}"]
                     )
 
+            # ---
+            # ⚡ Bolt Optimization: Vectorized Volume Indicators
+            # Using raw NumPy arrays (.values) and vectorized operations like
+            # np.sign and np.diff to significantly speed up volume indicators.
+            # ---
+            close_vals = df["close"].values
+            volume_vals = df["volume"].values
+
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
-                volume_direction = np.where(
-                    price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
-                )
-                df["obv"] = volume_direction.cumsum()
+                # np.diff handles the direction, np.sign converts to [-1, 0, 1]
+                price_change = np.diff(close_vals, prepend=close_vals[0])
+                df["obv"] = (np.sign(price_change) * volume_vals).cumsum()
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
-                price_change_pct = df["close"].pct_change()
-                df["vpt"] = (price_change_pct * df["volume"]).cumsum()
+                # Vectorized percentage change
+                prev_close = np.roll(close_vals, 1)
+                # Avoid division by zero and handle the first element
+                price_change_pct = np.zeros_like(close_vals)
+                # We skip the first element (index 0) as it has no previous price
+                mask = prev_close != 0
+                mask[0] = False  # Explicitly skip first element
+
+                price_change_pct[mask] = (
+                    close_vals[mask] - prev_close[mask]
+                ) / prev_close[mask]
+                df["vpt"] = (price_change_pct * volume_vals).cumsum()
 
             # Accumulation/Distribution Line
             if len(df) >= 1:
-                money_flow_multiplier = (
-                    (df["close"] - df["low"]) - (df["high"] - df["close"])
-                ) / (df["high"] - df["low"])
-                money_flow_volume = money_flow_multiplier * df["volume"]
-                df["ad_line"] = money_flow_volume.cumsum()
+                high_vals = df["high"].values
+                low_vals = df["low"].values
+
+                # Formula: (2*close - low - high) / (high - low)
+                # We use np.where to safely handle cases where high == low
+                range_vals = high_vals - low_vals
+                multiplier = np.where(
+                    range_vals != 0,
+                    (2 * close_vals - low_vals - high_vals) / range_vals,
+                    0,
+                )
+                df["ad_line"] = (multiplier * volume_vals).cumsum()
 
             return df
 
@@ -341,11 +371,21 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
-                df["r1"] = 2 * df["pivot"] - df["low"]
-                df["s1"] = 2 * df["pivot"] - df["high"]
-                df["r2"] = df["pivot"] + (df["high"] - df["low"])
-                df["s2"] = df["pivot"] - (df["high"] - df["low"])
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Pivot Point calculations
+                # Using raw NumPy arrays (.values) to avoid Pandas Series overhead
+                # during basic arithmetic operations.
+                # ---
+                high = df["high"].values
+                low = df["low"].values
+                close = df["close"].values
+
+                pivot = (high + low + close) / 3
+                df["pivot"] = pivot
+                df["r1"] = 2 * pivot - low
+                df["s1"] = 2 * pivot - high
+                df["r2"] = pivot + (high - low)
+                df["s2"] = pivot - (high - low)
 
             # Price position relative to recent highs/lows (Optimized)
             periods = [20, 50]
