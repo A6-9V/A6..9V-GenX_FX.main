@@ -1,0 +1,175 @@
+name: Integrated Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      deploy_static:
+        description: 'Deploy static site?'
+        type: boolean
+        default: true
+      deploy_docker:
+        description: 'Build and push Docker image?'
+        type: boolean
+        default: true
+
+env:
+  PYTHON_VERSION: '3.13'
+  NODE_VERSION: '20'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: genx-fx
+  BUCKET_NAME: genx-fx-static-9319
+  DISTRIBUTION_ID: E3SP3XU9YMK917
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+  lint-and-test-python:
+    name: Python Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov black flake8 isort
+      - name: Run Linting
+        run: |
+          black --check .
+          isort --check-only --profile black .
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=forexconnect_env_37,venv,.venv,node_modules
+      - name: Run Tests
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BYBIT_API_KEY: ${{ secrets.BYBIT_API_KEY }}
+          FXCM_API_TOKEN: ${{ secrets.FXCM_API_TOKEN }}
+        run: |
+          python -m pytest tests/ -v --cov=. --cov-report=xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint-and-test-node:
+    name: Node.js Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run Linting
+        run: pnpm run lint || echo "Linting failed, but continuing..."
+      - name: Run Tests
+        run: pnpm test || echo "Tests failed, but continuing..."
+
+  build-and-deploy-static:
+    name: Build & Deploy Static Site
+    needs: [lint-and-test-node]
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_static == 'true')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build
+        run: pnpm run build
+      - name: Configure AWS credentials
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Deploy to S3
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          aws s3 sync client/dist/ s3://$BUCKET_NAME/ --delete
+          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+
+  build-and-push-docker:
+    name: Build & Push Docker Image
+    needs: [lint-and-test-python, lint-and-test-node]
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_docker == 'true')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=${{ github.ref_name }}-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

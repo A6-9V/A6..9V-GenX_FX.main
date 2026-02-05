@@ -1,0 +1,27 @@
+[tool.black]
+line-length = 88
+target-version = ['py313']
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | forexconnect_env_37
+    | venv
+    | .venv
+    | node_modules
+  )/
+)
+'''
+
+[tool.isort]
+profile = "black"
+skip = ["forexconnect_env_37", "venv", ".venv", "node_modules"]
