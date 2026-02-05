@@ -85,5 +85,77 @@ def test_ad_line_logic():
     assert result["ad_line"].iloc[1] == 500
 
 
+def test_stoch_and_williams_logic():
+    ti = TechnicalIndicators()
+    # 14 rows with same values
+    df = pd.DataFrame(
+        {
+            "high": [110] * 14,
+            "low": [100] * 14,
+            "close": [105] * 14,
+        }
+    )
+    # Add one row that changes range
+    df.loc[14] = [120, 100, 110]
+
+    result = ti.add_momentum_indicators(df)
+
+    # At index 14: High=120, Low=100, Close=110
+    # Range = 20
+    # Stoch_K = 100 * (110 - 100) / 20 = 100 * 10 / 20 = 50
+    assert result["stoch_k"].iloc[14] == 50
+    # Williams_R = -100 * (120 - 110) / 20 = -100 * 10 / 20 = -50
+    assert result["williams_r"].iloc[14] == -50
+
+
+def test_donchian_logic():
+    ti = TechnicalIndicators()
+    # 20 rows
+    df = pd.DataFrame(
+        {
+            "high": np.linspace(110, 120, 20),
+            "low": np.linspace(90, 100, 20),
+            "close": np.linspace(100, 110, 20),
+        }
+    )
+    result = ti.add_volatility_indicators(df)
+
+    # At index 19:
+    # Upper = max(high) = 120
+    # Lower = min(low) = 90
+    # Middle = (120 + 90) / 2 = 105
+    # Position = (110 - 90) / (120 - 90) = 20 / 30 = 0.666...
+    assert result["donchian_upper"].iloc[19] == 120
+    assert result["donchian_lower"].iloc[19] == 90
+    assert result["donchian_middle"].iloc[19] == 105
+    assert pytest.approx(result["donchian_position"].iloc[19]) == 20 / 30
+
+
+def test_obv_vpt_logic():
+    ti = TechnicalIndicators()
+    df = pd.DataFrame(
+        {
+            "high": [100, 110, 105],  # Needed for synthetic volume check
+            "low": [100, 110, 105],
+            "close": [100, 110, 105],
+            "volume": [1000, 1000, 1000],
+        }
+    )
+    result = ti.add_volume_indicators(df)
+
+    # OBV:
+    # idx 0: 0
+    # idx 1: Price up, OBV = 1000
+    # idx 2: Price down, OBV = 1000 - 1000 = 0
+    assert result["obv"].iloc[1] == 1000
+    assert result["obv"].iloc[2] == 0
+
+    # VPT:
+    # idx 1: change = (110-100)/100 = 0.1. VPT = 0.1 * 1000 = 100
+    # idx 2: change = (105-110)/110 = -5/110. VPT = 100 + (-5/110 * 1000) = 100 - 45.45... = 54.54...
+    assert result["vpt"].iloc[1] == pytest.approx(100)
+    assert result["vpt"].iloc[2] == pytest.approx(100 + (-5 / 110 * 1000))
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

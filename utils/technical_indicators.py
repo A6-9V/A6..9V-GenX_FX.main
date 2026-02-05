@@ -125,14 +125,26 @@ class TechnicalIndicators:
                 # Calculate rolling min/max once for both indicators
                 low_min_14 = df["low"].rolling(window=14).min()
                 high_max_14 = df["high"].rolling(window=14).max()
-                range_14 = high_max_14 - low_min_14
+
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Stochastic and Williams %R arithmetic
+                # Using raw numpy values to avoid Series overhead and index alignment.
+                # ---
+                close_vals = df["close"].values
+                low_min_vals = low_min_14.values
+                high_max_vals = high_max_14.values
+                range_vals = high_max_vals - low_min_vals
+
+                # Handle potential division by zero
+                safe_range = np.where(range_vals != 0, range_vals, np.nan)
 
                 # Stochastic Oscillator
-                df["stoch_k"] = 100 * (df["close"] - low_min_14) / range_14
+                stoch_k_vals = 100 * (close_vals - low_min_vals) / safe_range
+                df["stoch_k"] = stoch_k_vals
                 df["stoch_d"] = df["stoch_k"].rolling(window=3).mean()
 
                 # Williams %R
-                df["williams_r"] = -100 * (high_max_14 - df["close"]) / range_14
+                df["williams_r"] = -100 * (high_max_vals - close_vals) / safe_range
 
             # Rate of Change (ROC)
             periods = [5, 10, 20]
@@ -242,14 +254,25 @@ class TechnicalIndicators:
 
             # Donchian Channels
             if len(df) >= 20:
-                df["donchian_upper"] = df["high"].rolling(window=20).max()
-                df["donchian_lower"] = df["low"].rolling(window=20).min()
-                df["donchian_middle"] = (
-                    df["donchian_upper"] + df["donchian_lower"]
-                ) / 2
-                df["donchian_position"] = (df["close"] - df["donchian_lower"]) / (
-                    df["donchian_upper"] - df["donchian_lower"]
-                )
+                donchian_upper = df["high"].rolling(window=20).max()
+                donchian_lower = df["low"].rolling(window=20).min()
+
+                # ---
+                # ⚡ Bolt Optimization: Vectorized Donchian Channel arithmetic
+                # Using raw numpy values to avoid Series overhead and index alignment.
+                # ---
+                upper_vals = donchian_upper.values
+                lower_vals = donchian_lower.values
+                close_vals = df["close"].values
+                range_vals = upper_vals - lower_vals
+
+                df["donchian_upper"] = upper_vals
+                df["donchian_lower"] = lower_vals
+                df["donchian_middle"] = (upper_vals + lower_vals) / 2
+
+                # Handle potential division by zero
+                safe_range = np.where(range_vals != 0, range_vals, np.nan)
+                df["donchian_position"] = (close_vals - lower_vals) / safe_range
 
             return df
 
@@ -277,18 +300,40 @@ class TechnicalIndicators:
 
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
+                # ---
+                # ⚡ Bolt Optimization: Vectorized OBV calculation
+                # Using numpy.diff and raw values for a significant speedup.
+                # ---
+                close_vals = df["close"].values
+                vol_vals = df["volume"].values
+
+                price_change = np.zeros_like(close_vals)
+                price_change[1:] = np.diff(close_vals)
+
                 volume_direction = np.where(
                     price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
+                    vol_vals,
+                    np.where(price_change < 0, -vol_vals, 0),
                 )
-                df["obv"] = volume_direction.cumsum()
+                df["obv"] = np.cumsum(volume_direction)
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
-                price_change_pct = df["close"].pct_change()
-                df["vpt"] = (price_change_pct * df["volume"]).cumsum()
+                # ---
+                # ⚡ Bolt Optimization: Vectorized VPT calculation
+                # ---
+                close_vals = df["close"].values
+                vol_vals = df["volume"].values
+
+                # Ensure float dtype for percentage changes
+                price_change_pct = np.zeros(len(close_vals), dtype=float)
+                # Avoid division by zero by using np.where or a safe denominator
+                denom = np.where(close_vals[:-1] != 0, close_vals[:-1], np.nan)
+                price_change_pct[1:] = (close_vals[1:] - close_vals[:-1]) / denom
+
+                # Fill NaNs from division by zero with 0 for cumulative sum
+                vpt_step = np.nan_to_num(price_change_pct * vol_vals)
+                df["vpt"] = np.cumsum(vpt_step)
 
             # Accumulation/Distribution Line (Optimized: Vectorized arithmetic)
             if len(df) >= 1:
@@ -579,15 +624,28 @@ class TechnicalIndicators:
                 tr = np.maximum(tr1, np.maximum(tr2, tr3))
                 atr = pd.Series(tr, index=df.index).rolling(window=period).mean()
 
-            di_plus = 100 * (dm_plus.rolling(window=period).mean() / atr)
-            di_minus = 100 * (dm_minus.rolling(window=period).mean() / atr)
+            di_plus_series = 100 * (dm_plus.rolling(window=period).mean() / atr)
+            di_minus_series = 100 * (dm_minus.rolling(window=period).mean() / atr)
 
-            # Calculate ADX
-            dx = 100 * abs(di_plus - di_minus) / (di_plus + di_minus)
-            adx = dx.rolling(window=period).mean()
+            # ---
+            # ⚡ Bolt Optimization: Vectorized ADX arithmetic
+            # Using raw numpy values to avoid Series overhead for the final steps.
+            # ---
+            di_plus = di_plus_series.values
+            di_minus = di_minus_series.values
 
-            df["di_plus"] = di_plus
-            df["di_minus"] = di_minus
+            # Calculate DX
+            diff = np.abs(di_plus - di_minus)
+            summ = di_plus + di_minus
+            # Handle potential division by zero
+            safe_summ = np.where(summ != 0, summ, np.nan)
+            dx = 100 * diff / safe_summ
+
+            # Calculate ADX (smoothed DX)
+            adx = pd.Series(dx, index=df.index).rolling(window=period).mean()
+
+            df["di_plus"] = di_plus_series
+            df["di_minus"] = di_minus_series
             df["adx"] = adx
 
             return df

@@ -28,6 +28,12 @@
 
 **Action:** I replaced `pd.concat().max()` with nested `np.maximum` and moved arithmetic operations to raw NumPy arrays by using `.values`. This combination reduced the ADX calculation time by ~43%, demonstrating that bypassing the Pandas Series abstraction for simple row-wise math is a powerful optimization in hot code paths.
 
+## 2026-05-20 - Integer Dtype Trap in Vectorized Percents
+
+**Learning:** When vectorizing percentage change calculations (like VPT) using `np.zeros_like(close_vals)`, the resulting array inherits the integer dtype if the input prices are integers. This causes all fractional results (like 0.1) to be truncated to zero, breaking the indicator logic.
+
+**Action:** Always specify `dtype=float` explicitly when creating arrays for fractional results or percentage changes (e.g., `np.zeros(len(close_vals), dtype=float)`) even if the input data currently consists of integers.
+
 ## 2025-02-12 - Reusing Intermediate Indicator Results
 
 **Learning:** I identified a common performance anti-pattern where multiple technical indicators (e.g., Stochastic Oscillator, Williams %R, Bollinger Bands, and Support/Resistance) re-calculate the same rolling windows (min, max, mean, std) independently. This redundancy wastes CPU cycles, especially as the number of indicators grows.
