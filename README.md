@@ -136,6 +136,13 @@ For more detailed information, please refer to the following guides in the repos
 -   **[API_KEY_SETUP.md](API_KEY_SETUP.md)**: Instructions for configuring the necessary API keys for all services.
 -   **[WHATSAPP_INTEGRATION_GUIDE.md](WHATSAPP_INTEGRATION_GUIDE.md)**: Guide for setting up WhatsApp notifications and group integration.
 
+### 💻 Development Environment Setup
+
+-   **[WSL_SETUP_README.md](WSL_SETUP_README.md)**: Quick start guide for Docker on WSL with H: drive
+-   **[docs/WSL_H_DRIVE_SETUP.md](docs/WSL_H_DRIVE_SETUP.md)**: Complete guide for Docker on WSL with H: drive, including IDE integration (VSCode, IntelliJ, PyCharm)
+-   **[docs/IDE_INTEGRATION_GUIDE.md](docs/IDE_INTEGRATION_GUIDE.md)**: Detailed IDE setup and usage guide for WSL development
+-   **[WSL_QUICK_REFERENCE.md](WSL_QUICK_REFERENCE.md)**: Quick reference with 50+ commands for WSL development
+
 ### 🚀 Deployment Guides
 
 -   **[DEPLOYMENT_STRATEGY.md](DEPLOYMENT_STRATEGY.md)**: **IMPORTANT!** Primary CI/CD platform selection and avoiding redundant deployments
