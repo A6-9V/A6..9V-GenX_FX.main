@@ -1,0 +1,47 @@
+# WSL Configuration for GenX FX Trading Platform
+# Place this file in your Windows user home directory (C:\Users\YourUsername\.wslconfig)
+# or on H: drive user home (H:\Users\YourUsername\.wslconfig)
+
+[wsl2]
+# Memory allocation (adjust based on your system)
+# Recommended: 50-75% of total RAM
+memory=8GB
+
+# Processors to use (adjust based on your CPU cores)
+# Recommended: Leave 2 cores for Windows
+processors=6
+
+# Swap size (virtual memory)
+swap=4GB
+
+# Swap file location (use H: drive for better space management)
+# Note: Update the path to match your actual H: drive WSL swap location
+# swapfile=H:\\wsl-swap\\swap.vhdx
+
+# Limits the amount of time that CPU resources are given to WSL
+# vmIdleTimeout=60000
+
+# Enable nested virtualization (for Docker in WSL)
+nestedVirtualization=true
+
+# Enable page reporting (improves memory performance)
+pageReporting=true
+
+# Kernel command line parameters for performance optimization
+kernelCommandLine = vsyscall=emulate
+
+[experimental]
+# Enable sparse VHD (saves disk space)
+sparseVhd=true
+
+# Enable DNS tunneling (improves network performance)
+dnsTunneling=true
+
+# Enable automatic memory reclaim (prevents memory bloat)
+autoMemoryReclaim=gradual
+
+# Network mode for better Docker networking
+networkingMode=mirrored
+
+# Enable disk performance improvements
+autoProxy=true

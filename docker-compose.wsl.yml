@@ -1,0 +1,129 @@
+version: '3.8'
+
+# Docker Compose configuration optimized for WSL2 on H: drive
+# This configuration includes performance optimizations and proper path handling for WSL
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Use delegated mount for better performance on WSL
+      - .:/app:delegated
+      # Cache Python packages for faster rebuilds
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+
+  discord_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python services/discord_bot.py
+    env_file:
+      - .env
+    volumes:
+      - .:/app:delegated
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python services/telegram_bot.py
+    env_file:
+      - .env
+    volumes:
+      - .:/app:delegated
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  notifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python services/notifier.py
+    env_file:
+      - .env
+    volumes:
+      - .:/app:delegated
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python services/scheduler.py
+    env_file:
+      - .env
+    volumes:
+      - .:/app:delegated
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  websocket_feed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python services/websocket_feed.py
+    env_file:
+      - .env
+    volumes:
+      - .:/app:delegated
+      - pip-cache:/root/.cache/pip
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    networks:
+      - genx-network
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  # Named volume for pip cache to improve build performance
+  pip-cache:
+    driver: local
+
+networks:
+  genx-network:
+    driver: bridge

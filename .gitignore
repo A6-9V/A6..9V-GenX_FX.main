@@ -160,7 +160,13 @@ cython_debug/
 #  be added to the global gitignore or merged into this project gitignore.  For a PyCharm
 #  project, it is generally recommended to include the .idea/ folder in version control.
 #  https://youtrack.jetbrains.com/issue/IDEA-59208
-.idea/
+# Note: We keep specific WSL configuration files for IDE integration
+.idea/*
+!.idea/misc.xml
+!.idea/modules.xml
+!.idea/vcs.xml
+!.idea/GenX_FX.iml
+!.idea/runConfigurations/
 
 # Trading Platform Specific
 *.pid
@@ -248,7 +254,15 @@ $RECYCLE.BIN/
 *.old
 
 # IDE files
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/genx-fx-wsl.code-workspace
+.idea/*
+!.idea/misc.xml
+!.idea/modules.xml
+!.idea/vcs.xml
+!.idea/GenX_FX.iml
+!.idea/runConfigurations/
 *.sublime-project
 *.sublime-workspace
 
