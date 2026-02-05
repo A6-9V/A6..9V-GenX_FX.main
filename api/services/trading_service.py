@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from utils.retry_handler import retry_async
+
 from ..models.schemas import (
     OrderRequest,
     OrderResponse,
@@ -91,6 +93,7 @@ class TradingService:
             timestamp=datetime.now(),
         )
 
+    @retry_async(max_retries=3)
     async def place_order(self, order_request: OrderRequest) -> OrderResponse:
         """
         Places a trading order.

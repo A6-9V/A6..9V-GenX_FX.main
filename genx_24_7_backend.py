@@ -16,7 +16,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-import requests
+import aiohttp
+
+from utils.retry_handler import retry_async
 
 # Add the api directory to Python path
 sys.path.append(str(Path(__file__).parent / "api"))
@@ -26,6 +28,7 @@ import uvicorn
 from api.main import app
 from api.services.ea_communication import EAServer, TradingSignal
 from api.services.gemini_service import GeminiService
+from api.services.news_filter import NewsFilter
 from api.services.trading_service import TradingService
 
 # Configure logging
@@ -53,6 +56,7 @@ class GenX24_7Backend:
         self.gemini_service = None
         self.trading_service = None
         self.ea_server = None
+        self.news_filter = NewsFilter()
         self.monitor_process = None
         self.signal_interval = 30  # Generate signals every 30 seconds
         self.last_signal_time = None
@@ -104,6 +108,7 @@ class GenX24_7Backend:
             logger.error(f"❌ Failed to initialize backend service: {e}")
             return False
 
+    @retry_async(max_retries=3)
     async def test_vps_connection(self) -> bool:
         """
         Tests the connection to the VPS.
@@ -112,13 +117,18 @@ class GenX24_7Backend:
             bool: True if the connection is successful, False otherwise.
         """
         try:
-            response = requests.get(f"{self.vps_url}/health", timeout=10)
-            if response.status_code == 200:
-                logger.info(f"✅ VPS connection successful: {self.vps_url}")
-                return True
-            else:
-                logger.warning(f"⚠️ VPS responded with status {response.status_code}")
-                return False
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self.vps_url}/health", timeout=10
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"✅ VPS connection successful: {self.vps_url}")
+                        return True
+                    else:
+                        logger.warning(
+                            f"⚠️ VPS responded with status {response.status}"
+                        )
+                        return False
         except Exception as e:
             logger.warning(f"⚠️ VPS connection failed: {e}")
             return False
@@ -227,6 +237,7 @@ class GenX24_7Backend:
 
         return signals
 
+    @retry_async(max_retries=3)
     async def send_signals_to_vps(self, signals: List[Dict[str, Any]]) -> bool:
         """
         Sends generated signals to the VPS and broadcasts them to connected EAs.
@@ -257,15 +268,18 @@ class GenX24_7Backend:
 
             # Send to VPS (if available)
             try:
-                response = requests.post(
-                    f"{self.vps_url}/api/signals", json={"signals": signals}, timeout=10
-                )
-                if response.status_code == 200:
-                    logger.info(f"✅ Sent {len(signals)} signals to VPS")
-                else:
-                    logger.warning(
-                        f"⚠️ VPS responded with status {response.status_code}"
-                    )
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self.vps_url}/api/signals",
+                        json={"signals": signals},
+                        timeout=10,
+                    ) as response:
+                        if response.status == 200:
+                            logger.info(f"✅ Sent {len(signals)} signals to VPS")
+                        else:
+                            logger.warning(
+                                f"⚠️ VPS responded with status {response.status}"
+                            )
             except Exception as e:
                 logger.warning(f"⚠️ Failed to send to VPS: {e}")
 
@@ -299,6 +313,13 @@ class GenX24_7Backend:
 
         while self.running:
             try:
+                # Check for high-impact news before generating signals
+                should_pause, event = await self.news_filter.should_pause_trading()
+                if should_pause:
+                    logger.info(f"⏸️ Signal generation paused for {event['title']}")
+                    await asyncio.sleep(60)
+                    continue
+
                 # Generate signals
                 signals = await self.generate_gold_signals()
 

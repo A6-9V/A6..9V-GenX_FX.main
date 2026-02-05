@@ -28,6 +28,10 @@ class TechnicalIndicators:
             # Make a copy to avoid modifying original data
             data = df.copy()
 
+            # Pre-calculate common intermediate results to avoid redundant work
+            # in sub-methods. Saving as a column for easy reuse across indicators.
+            data["typical_price"] = (data["high"] + data["low"] + data["close"]) / 3
+
             # Price-based indicators
             data = self.add_moving_averages(data)
             data = self.add_momentum_indicators(data)
@@ -61,10 +65,13 @@ class TechnicalIndicators:
                     # Weighted Moving Average (Optimized)
                     # The original pandas apply() method is slow. This implementation
                     # uses numpy.convolve for a significant performance boost.
+                    # Denominator is calculated as n*(n+1)/2.
                     weights = np.arange(1, period + 1)
-                    denominator = weights.sum()
+                    denominator = period * (period + 1) / 2
+                    # Reverse weights for convolution to correctly weigh recent prices
                     wma_values = (
-                        np.convolve(df["close"], weights, mode="valid") / denominator
+                        np.convolve(df["close"], weights[::-1], mode="valid")
+                        / denominator
                     )
 
                     # Align the convolution output with the DataFrame index
@@ -91,15 +98,27 @@ class TechnicalIndicators:
         try:
             # Relative Strength Index (RSI)
             if len(df) >= 14:
-                delta = df["close"].diff()
-                gain = delta.where(delta > 0, 0)
-                loss = -delta.where(delta < 0, 0)
+                # ---
+                # ⚡ Bolt Optimization: Vectorized RSI calculation
+                # Using raw numpy values to avoid the overhead of pd.Series.where
+                # and pd.Series.diff calls, which trigger index alignment.
+                # ---
+                close_vals = df["close"].values
+                delta = np.zeros_like(close_vals)
+                delta[1:] = np.diff(close_vals)
 
-                avg_gain = gain.rolling(window=14).mean()
-                avg_loss = loss.rolling(window=14).mean()
+                gain = np.where(delta > 0, delta, 0)
+                loss = np.where(delta < 0, -delta, 0)
 
-                rs = avg_gain / avg_loss
-                df["rsi"] = 100 - (100 / (1 + rs))
+                # Use pandas rolling mean on the numpy-calculated gain/loss
+                # We avoid passing the index to the Series constructor for speed.
+                avg_gain = pd.Series(gain).rolling(window=14).mean().values
+                avg_loss = pd.Series(loss).rolling(window=14).mean().values
+
+                # Calculate RS and RSI, handling division by zero gracefully via numpy
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    rs = avg_gain / avg_loss
+                    df["rsi"] = 100 - (100 / (1 + rs))
 
             # Stochastic Oscillator & Williams %R (Optimized)
             if len(df) >= 14:
@@ -124,27 +143,30 @@ class TechnicalIndicators:
             # Commodity Channel Index (CCI)
             if len(df) >= 20:
                 window = 20
-                typical_price = (df["high"] + df["low"] + df["close"]) / 3
+                # Reuse pre-calculated typical_price
+                typical_price = (
+                    df["typical_price"]
+                    if "typical_price" in df.columns
+                    else (df["high"] + df["low"] + df["close"]) / 3
+                )
                 sma_tp = typical_price.rolling(window=window).mean()
 
                 # ---
                 # ⚡ Bolt Optimization: Vectorized Mean Deviation
-                # The original `rolling().apply()` is notoriously slow. This
-                # implementation uses a vectorized approach by creating a
-                # rolling view of the data with numpy strides. This avoids
-                # Python-level loops and is significantly faster.
+                # Reused sma_tp values instead of re-calculating rolling mean.
+                # Switched to sliding_window_view for safer memory access.
                 # ---
                 typical_price_np = typical_price.to_numpy()
-                shape = (typical_price_np.shape[0] - window + 1, window)
-                strides = (typical_price_np.strides[0], typical_price_np.strides[0])
-                rolling_windows = np.lib.stride_tricks.as_strided(
-                    typical_price_np, shape=shape, strides=strides
+                rolling_windows = np.lib.stride_tricks.sliding_window_view(
+                    typical_price_np, window
                 )
 
+                # Use pre-calculated sma_tp values for the windows
+                sma_tp_values = sma_tp.values[window - 1 :]
+
                 # Calculate rolling mean absolute deviation
-                rolling_mean = np.mean(rolling_windows, axis=1)
                 rolling_mad_values = np.mean(
-                    np.abs(rolling_windows - rolling_mean[:, np.newaxis]), axis=1
+                    np.abs(rolling_windows - sma_tp_values[:, np.newaxis]), axis=1
                 )
 
                 mean_dev = pd.Series(rolling_mad_values, index=df.index[window - 1 :])
@@ -185,11 +207,24 @@ class TechnicalIndicators:
                 # Calculate standard deviation once
                 std_20 = df["close"].rolling(window=20).std()
 
-                df["bb_upper"] = sma_20 + (2 * std_20)
-                df["bb_lower"] = sma_20 - (2 * std_20)
-                df["bb_middle"] = sma_20
-                df["bb_width"] = df["bb_upper"] - df["bb_lower"]
-                df["bb_position"] = (df["close"] - df["bb_lower"]) / df["bb_width"]
+                # ---
+                # ⚡ Bolt Optimization: Use raw numpy values for band arithmetic
+                # Bypassing Series arithmetic significantly reduces overhead from
+                # index validation and alignment for these row-wise operations.
+                # ---
+                sma_vals = sma_20.values
+                std_vals = std_20.values
+                close_vals = df["close"].values
+
+                upper = sma_vals + (2 * std_vals)
+                lower = sma_vals - (2 * std_vals)
+                width = upper - lower
+
+                df["bb_upper"] = upper
+                df["bb_lower"] = lower
+                df["bb_middle"] = sma_vals
+                df["bb_width"] = width
+                df["bb_position"] = (close_vals - lower) / width
             else:
                 std_20 = None
 
@@ -255,12 +290,19 @@ class TechnicalIndicators:
                 price_change_pct = df["close"].pct_change()
                 df["vpt"] = (price_change_pct * df["volume"]).cumsum()
 
-            # Accumulation/Distribution Line
+            # Accumulation/Distribution Line (Optimized: Vectorized arithmetic)
             if len(df) >= 1:
-                money_flow_multiplier = (
-                    (df["close"] - df["low"]) - (df["high"] - df["close"])
-                ) / (df["high"] - df["low"])
-                money_flow_volume = money_flow_multiplier * df["volume"]
+                # Use raw numpy values for faster calculation
+                close_vals = df["close"].values
+                high_vals = df["high"].values
+                low_vals = df["low"].values
+                range_hl = high_vals - low_vals
+
+                # Handle potential division by zero
+                money_flow_multiplier = np.where(
+                    range_hl != 0, (2 * close_vals - low_vals - high_vals) / range_hl, 0
+                )
+                money_flow_volume = money_flow_multiplier * df["volume"].values
                 df["ad_line"] = money_flow_volume.cumsum()
 
             return df
@@ -341,11 +383,24 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                df["pivot"] = (df["high"] + df["low"] + df["close"]) / 3
-                df["r1"] = 2 * df["pivot"] - df["low"]
-                df["s1"] = 2 * df["pivot"] - df["high"]
-                df["r2"] = df["pivot"] + (df["high"] - df["low"])
-                df["s2"] = df["pivot"] - (df["high"] - df["low"])
+                # Reuse pre-calculated typical_price for pivot points
+                # ---
+                # ⚡ Bolt Optimization: Use raw numpy values for pivot arithmetic
+                # ---
+                high_vals = df["high"].values
+                low_vals = df["low"].values
+
+                pivot = (
+                    df["typical_price"].values
+                    if "typical_price" in df.columns
+                    else (high_vals + low_vals + df["close"].values) / 3
+                )
+
+                df["pivot"] = pivot
+                df["r1"] = 2 * pivot - low_vals
+                df["s1"] = 2 * pivot - high_vals
+                df["r2"] = pivot + (high_vals - low_vals)
+                df["s2"] = pivot - (high_vals - low_vals)
 
             # Price position relative to recent highs/lows (Optimized)
             periods = [20, 50]
@@ -359,15 +414,23 @@ class TechnicalIndicators:
                         high_max = df["high"].rolling(window=period).max()
                         low_min = df["low"].rolling(window=period).min()
 
-                    df[f"price_position_{period}"] = (df["close"] - low_min) / (
-                        high_max - low_min
-                    )
-                    df[f"resistance_distance_{period}"] = (high_max - df["close"]) / df[
-                        "close"
-                    ]
-                    df[f"support_distance_{period}"] = (df["close"] - low_min) / df[
-                        "close"
-                    ]
+                    # ---
+                    # ⚡ Bolt Optimization: Use raw numpy values for position arithmetic
+                    # ---
+                    high_max_vals = high_max.values
+                    low_min_vals = low_min.values
+                    close_vals = df["close"].values
+                    range_val = high_max_vals - low_min_vals
+
+                    df[f"price_position_{period}"] = (
+                        close_vals - low_min_vals
+                    ) / range_val
+                    df[f"resistance_distance_{period}"] = (
+                        high_max_vals - close_vals
+                    ) / close_vals
+                    df[f"support_distance_{period}"] = (
+                        close_vals - low_min_vals
+                    ) / close_vals
 
             return df
 

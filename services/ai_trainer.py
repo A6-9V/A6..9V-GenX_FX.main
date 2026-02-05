@@ -66,6 +66,9 @@ class AITrainingService:
         self.mongo_client = MongoClient(self.config["mongodb_url"])
         self.redis_client = redis.Redis.from_url(self.config["redis_url"])
 
+        # Setup MongoDB TTL indexes
+        self.setup_mongodb()
+
         # Initialize models
         self.ensemble_model = EnsembleModel()
         self.market_predictor = MarketPredictor()
@@ -85,6 +88,23 @@ class AITrainingService:
         self.model_performance = {}
 
         logger.info("AI Training Service initialized")
+
+    def setup_mongodb(self):
+        """Sets up MongoDB indexes, including TTL indexes for data retention."""
+        try:
+            logger.info("Setting up MongoDB indexes...")
+            db = self.mongo_client.genx_trading
+
+            # Create TTL index on validation_results (expire after 30 days)
+            # 30 days = 30 * 24 * 60 * 60 seconds = 2,592,000 seconds
+            db.validation_results.create_index("timestamp", expireAfterSeconds=2592000)
+
+            # Also create TTL index for predictions if it exists
+            db.predictions.create_index("timestamp", expireAfterSeconds=2592000)
+
+            logger.info("MongoDB TTL indexes created successfully (30-day retention)")
+        except Exception as e:
+            logger.error(f"Failed to setup MongoDB indexes: {e}")
 
     async def start_training_service(self):
         """Start the continuous training service"""

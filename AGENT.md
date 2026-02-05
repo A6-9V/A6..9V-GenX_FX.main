@@ -1,4 +1,4 @@
-# GenX FX AI Trading Platform - Agent Instructions
+# MAIN_FIRE_DOMSIN_WORKSPACE AI Trading Platform - Agent Instructions
 
 ## Build/Test Commands
 - **Build**: `npm run build` (builds both frontend and backend)

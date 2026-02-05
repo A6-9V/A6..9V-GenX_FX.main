@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Route, Routes, NavLink } from 'react-router-dom';
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import SystemTestResults from './components/SystemTestResults'
+import SystemStatus from './components/SystemStatus'
 import Billing from './pages/Billing';
 
 const Home = () => {
@@ -28,19 +29,31 @@ const Home = () => {
       ]);
 
       // Handle Node.js server health response
-      if (results[0].status === 'fulfilled') {
-        const healthData = await results[0].value.json();
-        setHealth(healthData);
+      if (results[0].status === 'fulfilled' && results[0].value.ok) {
+        try {
+          const healthData = await results[0].value.json();
+          setHealth(healthData);
+        } catch (e) {
+          console.error('Error parsing Node.js health JSON:', e);
+          setHealth(null);
+        }
       } else {
-        console.error('Node.js server error:', results[0].reason);
+        console.error('Node.js server error:', results[0].status === 'fulfilled' ? results[0].value.statusText : results[0].reason);
+        setHealth(null);
       }
 
       // Handle Python API health response
-      if (results[1].status === 'fulfilled') {
-        const apiHealthData = await results[1].value.json();
-        setApiHealth(apiHealthData);
+      if (results[1].status === 'fulfilled' && results[1].value.ok) {
+        try {
+          const apiHealthData = await results[1].value.json();
+          setApiHealth(apiHealthData);
+        } catch (e) {
+          console.error('Error parsing Python API health JSON:', e);
+          setApiHealth(null);
+        }
       } else {
-        console.error('Python API error:', results[1].reason);
+        console.error('Python API error:', results[1].status === 'fulfilled' ? results[1].value.statusText : results[1].reason);
+        setApiHealth(null);
       }
     } catch (error) {
       console.error('Error fetching health data:', error);
@@ -56,7 +69,7 @@ const Home = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-4xl font-bold text-center mb-8 text-gray-900">
-        🚀 GenX FX Trading Platform
+        🚀 MAIN_FIRE_DOMSIN_WORKSPACE Trading Platform
       </h1>
 
       <div className="flex justify-end mb-4">
@@ -128,6 +141,7 @@ const Home = () => {
         </div>
       </div>
 
+      <SystemStatus />
       <SystemTestResults />
     </div>
   )
