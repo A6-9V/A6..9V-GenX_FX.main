@@ -128,14 +128,14 @@ def test_donchian_logic():
     assert result["donchian_upper"].iloc[19] == 120
     assert result["donchian_lower"].iloc[19] == 90
     assert result["donchian_middle"].iloc[19] == 105
-    assert pytest.approx(result["donchian_position"].iloc[19]) == 20/30
+    assert pytest.approx(result["donchian_position"].iloc[19]) == 20 / 30
 
 
 def test_obv_vpt_logic():
     ti = TechnicalIndicators()
     df = pd.DataFrame(
         {
-            "high": [100, 110, 105], # Needed for synthetic volume check
+            "high": [100, 110, 105],  # Needed for synthetic volume check
             "low": [100, 110, 105],
             "close": [100, 110, 105],
             "volume": [1000, 1000, 1000],
@@ -154,7 +154,7 @@ def test_obv_vpt_logic():
     # idx 1: change = (110-100)/100 = 0.1. VPT = 0.1 * 1000 = 100
     # idx 2: change = (105-110)/110 = -5/110. VPT = 100 + (-5/110 * 1000) = 100 - 45.45... = 54.54...
     assert result["vpt"].iloc[1] == pytest.approx(100)
-    assert result["vpt"].iloc[2] == pytest.approx(100 + (-5/110 * 1000))
+    assert result["vpt"].iloc[2] == pytest.approx(100 + (-5 / 110 * 1000))
 
 
 if __name__ == "__main__":
