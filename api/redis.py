@@ -1,5 +1,6 @@
-import redis.asyncio as redis
 import os
+
+import redis.asyncio as redis
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
@@ -23,6 +24,5 @@ async def init_redis():
 
 
 async def close_redis():
-    global redis_client
     if redis_client:
         await redis_client.aclose()

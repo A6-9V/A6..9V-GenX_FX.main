@@ -5,8 +5,10 @@ Simulates how the bot performs in unknown future market conditions.
 
 import unittest
 from datetime import datetime, timedelta
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
 
 class WalkForwardOptimization(unittest.TestCase):
     """
@@ -21,11 +23,13 @@ class WalkForwardOptimization(unittest.TestCase):
     def setUp(self):
         # Generate mock data for demonstration
         dates = pd.date_range(start="2023-01-01", periods=365, freq="D")
-        self.data = pd.DataFrame({
-            "timestamp": dates,
-            "close": np.random.normal(2000, 50, len(dates)),
-            "volume": np.random.randint(100, 1000, len(dates))
-        })
+        self.data = pd.DataFrame(
+            {
+                "timestamp": dates,
+                "close": np.random.normal(2000, 50, len(dates)),
+                "volume": np.random.randint(100, 1000, len(dates)),
+            }
+        )
 
     def walk_forward_split(self, train_months=3, test_months=1):
         """
@@ -46,13 +50,13 @@ class WalkForwardOptimization(unittest.TestCase):
                 break
 
             train_set = self.data[
-                (self.data["timestamp"] >= current_train_start) &
-                (self.data["timestamp"] < current_train_end)
+                (self.data["timestamp"] >= current_train_start)
+                & (self.data["timestamp"] < current_train_end)
             ]
 
             test_set = self.data[
-                (self.data["timestamp"] >= current_test_start) &
-                (self.data["timestamp"] < current_test_end)
+                (self.data["timestamp"] >= current_test_start)
+                & (self.data["timestamp"] < current_test_end)
             ]
 
             results.append((train_set, test_set))
@@ -88,6 +92,7 @@ class WalkForwardOptimization(unittest.TestCase):
 
             self.assertGreater(len(train_set), 0)
             self.assertGreater(len(test_set), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

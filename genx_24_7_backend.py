@@ -118,12 +118,16 @@ class GenX24_7Backend:
         """
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.vps_url}/health", timeout=10) as response:
+                async with session.get(
+                    f"{self.vps_url}/health", timeout=10
+                ) as response:
                     if response.status == 200:
                         logger.info(f"✅ VPS connection successful: {self.vps_url}")
                         return True
                     else:
-                        logger.warning(f"⚠️ VPS responded with status {response.status}")
+                        logger.warning(
+                            f"⚠️ VPS responded with status {response.status}"
+                        )
                         return False
         except Exception as e:
             logger.warning(f"⚠️ VPS connection failed: {e}")
@@ -266,7 +270,9 @@ class GenX24_7Backend:
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
-                        f"{self.vps_url}/api/signals", json={"signals": signals}, timeout=10
+                        f"{self.vps_url}/api/signals",
+                        json={"signals": signals},
+                        timeout=10,
                     ) as response:
                         if response.status == 200:
                             logger.info(f"✅ Sent {len(signals)} signals to VPS")

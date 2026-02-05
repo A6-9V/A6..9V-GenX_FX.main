@@ -111,10 +111,14 @@ class GenXRobustBackend:
 
             # Test local API connection
             try:
-                async with session.get(f"{self.local_api_url}/health", timeout=3) as response:
+                async with session.get(
+                    f"{self.local_api_url}/health", timeout=3
+                ) as response:
                     if response.status == 200:
                         self.local_api_connected = True
-                        logger.info(f"Local API connection successful: {self.local_api_url}")
+                        logger.info(
+                            f"Local API connection successful: {self.local_api_url}"
+                        )
                     else:
                         logger.warning(
                             f"Local API responded with status {response.status}"
