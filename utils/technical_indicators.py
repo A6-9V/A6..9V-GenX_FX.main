@@ -277,18 +277,37 @@ class TechnicalIndicators:
 
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
+                # ---
+                # ⚡ Bolt Optimization: Use raw numpy for OBV direction logic
+                # ---
+                close_vals = df["close"].values
+                volume_vals = df["volume"].values
+
+                # Calculate price change using numpy for speed
+                price_change = np.zeros_like(close_vals)
+                price_change[1:] = np.diff(close_vals)
+
                 volume_direction = np.where(
                     price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
+                    volume_vals,
+                    np.where(price_change < 0, -volume_vals, 0),
                 )
                 df["obv"] = volume_direction.cumsum()
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
-                price_change_pct = df["close"].pct_change()
-                df["vpt"] = (price_change_pct * df["volume"]).cumsum()
+                # ---
+                # ⚡ Bolt Optimization: Use raw numpy for VPT logic
+                # ---
+                close_vals = df["close"].values
+                volume_vals = df["volume"].values
+
+                # Calculate percentage change manually with numpy to avoid Series overhead
+                price_change_pct = np.zeros_like(close_vals)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    price_change_pct[1:] = np.diff(close_vals) / close_vals[:-1]
+
+                df["vpt"] = (price_change_pct * volume_vals).cumsum()
 
             # Accumulation/Distribution Line (Optimized: Vectorized arithmetic)
             if len(df) >= 1:
@@ -579,16 +598,31 @@ class TechnicalIndicators:
                 tr = np.maximum(tr1, np.maximum(tr2, tr3))
                 atr = pd.Series(tr, index=df.index).rolling(window=period).mean()
 
-            di_plus = 100 * (dm_plus.rolling(window=period).mean() / atr)
-            di_minus = 100 * (dm_minus.rolling(window=period).mean() / atr)
+            # ---
+            # ⚡ Bolt Optimization: Further vectorization of ADX arithmetic
+            # Using raw numpy values for final DI and DX calculations to avoid
+            # repeated Series index alignment overhead.
+            # ---
+            dm_plus_mean = dm_plus.rolling(window=period).mean().values
+            dm_minus_mean = dm_minus.rolling(window=period).mean().values
+            atr_vals = atr.values
 
-            # Calculate ADX
-            dx = 100 * abs(di_plus - di_minus) / (di_plus + di_minus)
-            adx = dx.rolling(window=period).mean()
+            with np.errstate(divide="ignore", invalid="ignore"):
+                di_plus_vals = 100 * (dm_plus_mean / atr_vals)
+                di_minus_vals = 100 * (dm_minus_mean / atr_vals)
 
-            df["di_plus"] = di_plus
-            df["di_minus"] = di_minus
-            df["adx"] = adx
+                # Calculate DX
+                dx_vals = (
+                    100
+                    * np.abs(di_plus_vals - di_minus_vals)
+                    / (di_plus_vals + di_minus_vals)
+                )
+
+            df["di_plus"] = di_plus_vals
+            df["di_minus"] = di_minus_vals
+
+            # ADX is the smoothed average of DX
+            df["adx"] = pd.Series(dx_vals, index=df.index).rolling(window=period).mean()
 
             return df
 
