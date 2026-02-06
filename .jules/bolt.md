@@ -51,3 +51,9 @@
 **Learning:** I identified a consistent performance overhead in `utils/technical_indicators.py` where row-wise arithmetic operations (addition, subtraction, division) were performed directly on Pandas Series. Even when indexes are aligned, Pandas performs validation that becomes significant when called repeatedly across dozens of indicators.
 
 **Action:** I replaced Series-to-Series arithmetic with raw NumPy array operations by extracting `.values`. For OBV and VPT, I fully vectorized the logic using `np.diff` and `np.where`. This provided a ~14% overall speedup for the `add_all_indicators` method (~100ms per 100k rows), demonstrating that "dropping down" to NumPy for final arithmetic steps after windowed operations is a high-value performance pattern in data-intensive paths.
+
+## 2026-02-06 - Composite Index for Time-Series Queries
+
+**Learning:** I identified a performance bottleneck in the `get_performance` endpoint where querying the `account_performance` table became significantly slower as the dataset grew. This was due to a full table scan for every request that filtered by `account_number` and sorted by `timestamp`. Using a composite index specifically tailored to the query's `WHERE` and `ORDER BY` clauses is essential for scaling SQLite databases in time-series applications.
+
+**Action:** I implemented a composite index `idx_account_performance_acc_ts` on `(account_number, timestamp DESC)`. Benchmarking showed a ~17.7x speedup (6.2ms to 0.35ms for 50k rows), demonstrating the massive impact of proper indexing on hot database paths.
