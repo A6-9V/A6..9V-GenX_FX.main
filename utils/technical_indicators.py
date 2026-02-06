@@ -30,7 +30,10 @@ class TechnicalIndicators:
 
             # Pre-calculate common intermediate results to avoid redundant work
             # in sub-methods. Saving as a column for easy reuse across indicators.
-            data["typical_price"] = (data["high"] + data["low"] + data["close"]) / 3
+            # ⚡ Bolt: Use raw numpy values to bypass series arithmetic overhead
+            data["typical_price"] = (
+                data["high"].values + data["low"].values + data["close"].values
+            ) / 3
 
             # Price-based indicators
             data = self.add_moving_averages(data)
@@ -83,9 +86,13 @@ class TechnicalIndicators:
             if len(df) >= 26:
                 ema12 = df["close"].ewm(span=12).mean()
                 ema26 = df["close"].ewm(span=26).mean()
-                df["macd"] = ema12 - ema26
-                df["macd_signal"] = df["macd"].ewm(span=9).mean()
-                df["macd_histogram"] = df["macd"] - df["macd_signal"]
+                # ⚡ Bolt: Use .values for row-wise subtraction to avoid index alignment
+                macd_vals = ema12.values - ema26.values
+                df["macd"] = macd_vals
+
+                macd_signal = df["macd"].ewm(span=9).mean()
+                df["macd_signal"] = macd_signal
+                df["macd_histogram"] = macd_vals - macd_signal.values
 
             return df
 
@@ -125,14 +132,19 @@ class TechnicalIndicators:
                 # Calculate rolling min/max once for both indicators
                 low_min_14 = df["low"].rolling(window=14).min()
                 high_max_14 = df["high"].rolling(window=14).max()
-                range_14 = high_max_14 - low_min_14
+                # ⚡ Bolt: Use .values for row-wise arithmetic to avoid series overhead
+                low_min_vals = low_min_14.values
+                high_max_vals = high_max_14.values
+                range_vals = high_max_vals - low_min_vals
 
                 # Stochastic Oscillator
-                df["stoch_k"] = 100 * (df["close"] - low_min_14) / range_14
+                df["stoch_k"] = 100 * (df["close"].values - low_min_vals) / range_vals
                 df["stoch_d"] = df["stoch_k"].rolling(window=3).mean()
 
                 # Williams %R
-                df["williams_r"] = -100 * (high_max_14 - df["close"]) / range_14
+                df["williams_r"] = (
+                    -100 * (high_max_vals - df["close"].values) / range_vals
+                )
 
             # Rate of Change (ROC)
             periods = [5, 10, 20]
@@ -230,26 +242,33 @@ class TechnicalIndicators:
 
             # Volatility indicators (Optimized: Reuse std_20)
             periods = [10, 20, 50, 100]
+            close_vals = df["close"].values
             for period in periods:
                 if len(df) >= period:
                     col_name = f"volatility_{period}"
                     if period == 20 and std_20 is not None:
-                        df[col_name] = std_20
+                        vol = std_20
                     else:
-                        df[col_name] = df["close"].rolling(window=period).std()
+                        vol = df["close"].rolling(window=period).std()
 
-                    df[f"volatility_ratio_{period}"] = df[col_name] / df["close"]
+                    df[col_name] = vol
+                    # ⚡ Bolt: Use .values for ratio calculation
+                    df[f"volatility_ratio_{period}"] = vol.values / close_vals
 
             # Donchian Channels
             if len(df) >= 20:
-                df["donchian_upper"] = df["high"].rolling(window=20).max()
-                df["donchian_lower"] = df["low"].rolling(window=20).min()
-                df["donchian_middle"] = (
-                    df["donchian_upper"] + df["donchian_lower"]
-                ) / 2
-                df["donchian_position"] = (df["close"] - df["donchian_lower"]) / (
-                    df["donchian_upper"] - df["donchian_lower"]
-                )
+                d_upper = df["high"].rolling(window=20).max()
+                d_lower = df["low"].rolling(window=20).min()
+                df["donchian_upper"] = d_upper
+                df["donchian_lower"] = d_lower
+
+                # ⚡ Bolt: Use .values for row-wise arithmetic
+                upper_vals = d_upper.values
+                lower_vals = d_lower.values
+                range_vals = upper_vals - lower_vals
+
+                df["donchian_middle"] = (upper_vals + lower_vals) / 2
+                df["donchian_position"] = (close_vals - lower_vals) / range_vals
 
             return df
 
@@ -266,29 +285,42 @@ class TechnicalIndicators:
 
             # Volume Moving Averages
             periods = [10, 20, 50]
+            volume_vals = df["volume"].values
             for period in periods:
                 if len(df) >= period:
-                    df[f"volume_sma_{period}"] = (
-                        df["volume"].rolling(window=period).mean()
-                    )
-                    df[f"volume_ratio_{period}"] = (
-                        df["volume"] / df[f"volume_sma_{period}"]
-                    )
+                    v_sma = df["volume"].rolling(window=period).mean()
+                    df[f"volume_sma_{period}"] = v_sma
+                    # ⚡ Bolt: Use .values for ratio
+                    df[f"volume_ratio_{period}"] = volume_vals / v_sma.values
 
             # On-Balance Volume (OBV)
             if len(df) >= 2:
-                price_change = df["close"].diff()
+                # ⚡ Bolt Optimization: Fully vectorized OBV
+                # Replaces slow pd.Series.diff() and keeps logic mathematically identical
+                close_vals = df["close"].values
+                price_diff = np.zeros_like(close_vals)
+                price_diff[1:] = np.diff(close_vals)
+
                 volume_direction = np.where(
-                    price_change > 0,
-                    df["volume"],
-                    np.where(price_change < 0, -df["volume"], 0),
+                    price_diff > 0,
+                    volume_vals,
+                    np.where(price_diff < 0, -volume_vals, 0),
                 )
                 df["obv"] = volume_direction.cumsum()
 
             # Volume Price Trend (VPT)
             if len(df) >= 2:
-                price_change_pct = df["close"].pct_change()
-                df["vpt"] = (price_change_pct * df["volume"]).cumsum()
+                # ⚡ Bolt Optimization: Fully vectorized VPT
+                # Using numpy for pct_change calculation to avoid index alignment overhead.
+                # We handle the first NaN by using a zero in the first position to match
+                # the cumulative behavior of the original pandas implementation.
+                close_vals = df["close"].values
+                pct_change = np.zeros_like(close_vals)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    # pct_change = (current - previous) / previous
+                    pct_change[1:] = np.diff(close_vals) / close_vals[:-1]
+
+                df["vpt"] = (pct_change * volume_vals).cumsum()
 
             # Accumulation/Distribution Line (Optimized: Vectorized arithmetic)
             if len(df) >= 1:

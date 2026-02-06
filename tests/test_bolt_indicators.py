@@ -85,5 +85,28 @@ def test_ad_line_logic():
     assert result["ad_line"].iloc[1] == 500
 
 
+def test_obv_vpt_correctness():
+    ti = TechnicalIndicators()
+    df = pd.DataFrame(
+        {
+            "close": [10.0, 11.0, 10.5, 12.0],
+            "volume": [100.0, 200.0, 150.0, 300.0],
+            "high": [10.5, 11.5, 11.0, 12.5],
+            "low": [9.5, 10.5, 10.0, 11.5],
+        }
+    )
+
+    result = ti.add_volume_indicators(df)
+
+    # OBV Logic check
+    expected_obv = [0.0, 200.0, 50.0, 350.0]
+    np.testing.assert_array_equal(result["obv"].values, expected_obv)
+
+    # VPT Logic check
+    price_change_pct = df["close"].pct_change().fillna(0)
+    expected_vpt = (price_change_pct * df["volume"]).cumsum()
+    pd.testing.assert_series_equal(result["vpt"], expected_vpt, check_names=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
