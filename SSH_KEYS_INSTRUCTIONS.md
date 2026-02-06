@@ -4,11 +4,13 @@
 
 I have generated a 4096-bit RSA SSH key pair for you.
 
+**CRITICAL SECURITY NOTE**: These keys are NOT stored in this repository. They have been deleted from the environment and added to `.gitignore` to prevent them from being committed. You must copy the keys from the chat message and save them in a secure location (like a password manager or GitHub Organization Secrets).
+
 ### Public Key (`id_rsa.pub`)
-*Provided in the response and saved locally.*
+*Please copy from the chat response.*
 
 ### Private Key (`id_rsa`)
-*Provided in the response and saved locally. Keep this extremely secure.*
+*Please copy from the chat response. Keep this extremely secure.*
 
 ## 🛠️ How to save as Organization Secret (GitHub)
 
