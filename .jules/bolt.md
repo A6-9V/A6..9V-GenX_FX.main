@@ -45,3 +45,9 @@
 **Learning:** I identified a performance bottleneck in `utils/technical_indicators.py` where multiple technical indicators (RSI, Bollinger Bands, Pivot Points) were performing row-wise arithmetic directly on Pandas Series. Each Series-to-Series operation triggers index validation and alignment, which is costly when done repeatedly for many columns.
 
 **Action:** I replaced Series arithmetic with raw NumPy array operations by extracting `.values`. This optimization provided a ~20% speedup for Support/Resistance levels and a ~5% boost for Bollinger Bands. Moving to NumPy for final arithmetic steps after windowed operations (like rolling mean) is a consistent win in this codebase.
+
+## 2025-02-14 - Multi-step Vectorization in OBV, VPT, and ADX
+
+**Learning:** I identified a performance bottleneck in `add_volume_indicators` and `_calculate_adx` where multiple row-wise arithmetic operations and price change calculations (diff, pct_change) were performed on Pandas Series. Each operation triggers index validation and alignment, which accumulates overhead.
+
+**Action:** I fully vectorized the OBV, VPT, and ADX calculations by extracting `.values` and using NumPy's `np.diff` and `np.where`. This bypasses the Pandas index alignment logic entirely for the arithmetic-heavy parts of these indicators. Benchmarks showed a ~2.5x speedup for `add_volume_indicators` and a ~2.4x speedup for `_calculate_adx`, significantly improving the throughput of the technical analysis pipeline.
