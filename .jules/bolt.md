@@ -57,3 +57,9 @@
 **Learning:** I identified a performance bottleneck in the `get_performance` endpoint where querying the `account_performance` table became significantly slower as the dataset grew. This was due to a full table scan for every request that filtered by `account_number` and sorted by `timestamp`. Using a composite index specifically tailored to the query's `WHERE` and `ORDER BY` clauses is essential for scaling SQLite databases in time-series applications.
 
 **Action:** I implemented a composite index `idx_account_performance_acc_ts` on `(account_number, timestamp DESC)`. Benchmarking showed a ~17.7x speedup (6.2ms to 0.35ms for 50k rows), demonstrating the massive impact of proper indexing on hot database paths.
+
+## 2026-02-06 - Repository Hygiene and CI Stability
+
+**Learning:** Committed virtual environments (like `forexconnect_env_37`) can interfere with CI linting checks if they are not explicitly excluded. Furthermore, upgrading to Pydantic v2 requires adding `pydantic-settings` to ensure the `BaseSettings` class can be imported.
+
+**Action:** I updated `ci-cd.yml` to exclude the committed virtual environment from the `black` formatter check and added `pydantic-settings` to `requirements.txt`. I also reformatted the root `main.py` and `__init__.py` to satisfy the existing CI linting rules.
