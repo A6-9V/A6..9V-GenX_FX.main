@@ -1,49 +1,35 @@
-# Use a slim Debian image as the base
-FROM debian:bookworm-slim
+# Dockerfile for EXNESS Terminal Support Services
+# This container runs supporting services that connect to the native MT5 installation
 
-# Install sudo and create a non-root user
-RUN apt-get update && apt-get install -y sudo && rm -rf /var/lib/apt/lists/*
-RUN useradd -m -s /bin/bash jules
-RUN adduser jules sudo
-RUN echo "jules:jules" | chpasswd
+FROM python:3.11-slim
 
-# Switch to the non-root user
-USER jules
-WORKDIR /home/jules
+# Set working directory
+WORKDIR /app
 
-# Install dependencies
-RUN sudo apt-get update && \
-    sudo apt-get install -y \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
     curl \
-    openssl \
-    git \
-    msmtp \
-    ca-certificates \
-    libnss3 \
-    davfs2 \
-    && sudo rm -rf /var/lib/apt/lists/*
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js and Firebase Tools
-RUN curl -sL https://deb.nodesource.com/setup_22.x | sudo -E bash - && \
-    sudo apt-get install -y nodejs && \
-    sudo npm install -g firebase-tools
+# Copy and install Python dependencies
+COPY docker/trading-bridge/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install GitHub CLI (gh)
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
-    sudo apt-get update && \
-    sudo apt-get install -y gh
+# Copy bridge service
+COPY bridge/ ./bridge/
+COPY config/ ./config/
 
-# Install Google Cloud CLI
-RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    sudo apt-get update && \
-    sudo apt-get install -y google-cloud-cli
+# Expose ports
+EXPOSE 5555 8000
 
-# Copy the jules.sh script into the container
-COPY --chown=jules:jules jules.sh .
-RUN sudo chmod +x jules.sh
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Set the entrypoint
-ENTRYPOINT ["./jules.sh"]
+# Start the bridge service
+CMD ["python", "-m", "bridge.main"]
+
