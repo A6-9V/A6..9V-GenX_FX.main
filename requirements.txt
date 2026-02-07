@@ -18,3 +18,5 @@ typer==0.9.0
 rich==13.7.0
 msal==1.26.0
 
+joblib==1.5.3
+httpx==0.26.0

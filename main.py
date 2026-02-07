@@ -2,12 +2,13 @@
 Trading Bridge Service - Connects Docker services to MT5 Terminal
 """
 
-import os
-import sys
 import json
 import logging
+import os
 import socket
+import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables
