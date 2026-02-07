@@ -36,6 +36,13 @@
         "websocket_service"
       ],
       "description": "Multi-exchange WebSocket streams for real-time data"
+    },
+    {
+      "name": "nuna-fork",
+      "source": "forge.mql5.io",
+      "enabled": true,
+      "services": [],
+      "description": "NUNA Fork for MQL5 Trading Robots and Data Management"
     }
   ],
   "services": [],
