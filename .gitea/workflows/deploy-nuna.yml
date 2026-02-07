@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'nuna_fork/**'
+      - 'nuna_fork'
+      - 'Dockerfile.nuna'
+      - '.gitea/workflows/deploy-nuna.yml'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +30,7 @@ jobs:
       - name: Build and push NUNA Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./nuna_fork
+          context: .
           file: ./Dockerfile.nuna
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/nuna-fork:latest

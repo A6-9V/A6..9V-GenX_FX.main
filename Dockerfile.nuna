@@ -9,19 +9,35 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
+    wget \
+    libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install TA-Lib system library
+# We use the pre-built debian package provided in the repository
+COPY ta-lib/ta-lib_0.6.4_amd64.deb /tmp/
+RUN dpkg -i /tmp/ta-lib_0.6.4_amd64.deb || apt-get install -f -y && \
+    ln -s /usr/lib/libta-lib.so /usr/lib/libta_lib.so || true && \
+    rm /tmp/ta-lib_0.6.4_amd64.deb
+
 # Copy the requirements file into the container
+# Using root requirements to ensure all integration dependencies are met
 COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
-COPY . .
+# Copy the submodule content and other necessary files
+# We only copy what's needed for the NUNA runner to keep the image lean
+COPY nuna_fork/ /app/nuna_fork/
+COPY amp_config.json /app/
+COPY .env.example /app/.env
+
+# Set working directory to the submodule for running the manager
+WORKDIR /app/nuna_fork
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Run the data manager by default (or you can override this)
+# Run the data manager by default
 CMD ["python", "trading_data_manager.py", "run", "--apply"]
