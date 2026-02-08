@@ -81,3 +81,9 @@
 **Learning:** Using legacy library versions (like `scikit-learn==1.3.2`) on modern Python runtimes (like 3.13) forces `pip` to build from source because pre-built wheels don't exist for that combination. This not only makes CI runs significantly slower but also risks build-time failures if the library's Cython files are incompatible with the latest version of build-time dependencies like NumPy.
 
 **Action:** I upgraded `scikit-learn` to `>=1.5.2` in `requirements.txt`. This allows `pip` to install pre-built wheels on all supported Python versions (3.11-3.13), resolving the CI build error and drastically reducing installation time. Favoring libraries with modern wheel support is a key performance strategy for CI/CD pipelines.
+
+## 2026-02-14 - Pydantic Compatibility with Python 3.13
+
+**Learning:** I identified a CI failure on Python 3.13 caused by `pydantic-core==2.14.1` (used by `pydantic==2.5.0`). The error `ForwardRef._evaluate() missing 1 required keyword-only argument: 'recursive_guard'` occurs because Python 3.13 changed internal APIs that older Pydantic versions relied on for forward reference evaluation.
+
+**Action:** I upgraded `pydantic` to `>=2.10.0`, `fastapi` to `>=0.115.0`, and `pydantic-settings` to `>=2.4.0`. These versions include the necessary fixes for Python 3.13 compatibility. Maintaining core framework dependencies within their actively supported windows is critical for ensuring application stability on the latest language runtimes.
