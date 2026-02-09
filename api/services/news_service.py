@@ -127,7 +127,7 @@ class NewsService:
 
     async def get_crypto_news(self, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        Aggregates cryptocurrency news from multiple sources.
+        Aggregates cryptocurrency news from multiple sources in parallel.
 
         Args:
             limit (int): The maximum number of news articles to return.
@@ -135,26 +135,20 @@ class NewsService:
         Returns:
             List[Dict[str, Any]]: A sorted and deduplicated list of news articles.
         """
-        all_news = []
-
-        # NewsAPI
+        # --- ⚡ Bolt Optimization: Parallel News Fetching ---
+        # Instead of fetching news sequentially from each API (an N+1 network problem),
+        # we use asyncio.gather to fetch from all sources concurrently. This reduces
+        # the total latency to the time of the slowest API call rather than the sum.
+        tasks = []
         if self.newsapi_client:
-            newsapi_articles = await self._get_newsapi_articles(
-                "cryptocurrency", limit=20
-            )
-            all_news.extend(newsapi_articles)
-
-        # Finnhub
+            tasks.append(self._get_newsapi_articles("cryptocurrency", limit=20))
         if self.finnhub_client:
-            finnhub_articles = await self._get_finnhub_news("crypto", limit=15)
-            all_news.extend(finnhub_articles)
-
-        # NewsData.io
+            tasks.append(self._get_finnhub_news("crypto", limit=15))
         if self.newsdata_key:
-            newsdata_articles = await self._get_newsdata_articles(
-                "cryptocurrency", limit=15
-            )
-            all_news.extend(newsdata_articles)
+            tasks.append(self._get_newsdata_articles("cryptocurrency", limit=15))
+
+        results = await asyncio.gather(*tasks)
+        all_news = [article for sublist in results for article in sublist]
 
         # Remove duplicates and sort by date
         unique_news = self._remove_duplicates(all_news)
@@ -166,7 +160,7 @@ class NewsService:
         self, symbol: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        Aggregates stock market news, optionally for a specific symbol.
+        Aggregates stock market news from multiple sources in parallel.
 
         Args:
             symbol (Optional[str]): The stock symbol (e.g., "AAPL"). If None,
@@ -176,28 +170,21 @@ class NewsService:
         Returns:
             List[Dict[str, Any]]: A sorted and deduplicated list of news articles.
         """
-        all_news = []
-
-        # NewsAPI
+        # --- ⚡ Bolt Optimization: Parallel News Fetching ---
+        tasks = []
         if self.newsapi_client:
             query = f"{symbol} stock" if symbol else "stock market"
-            newsapi_articles = await self._get_newsapi_articles(query, limit=20)
-            all_news.extend(newsapi_articles)
-
-        # Finnhub
+            tasks.append(self._get_newsapi_articles(query, limit=20))
         if self.finnhub_client:
             if symbol:
-                finnhub_articles = await self._get_finnhub_company_news(
-                    symbol, limit=15
-                )
+                tasks.append(self._get_finnhub_company_news(symbol, limit=15))
             else:
-                finnhub_articles = await self._get_finnhub_news("general", limit=15)
-            all_news.extend(finnhub_articles)
-
-        # Alpha Vantage
+                tasks.append(self._get_finnhub_news("general", limit=15))
         if self.alphavantage and symbol:
-            av_articles = await self._get_alphavantage_news(symbol, limit=10)
-            all_news.extend(av_articles)
+            tasks.append(self._get_alphavantage_news(symbol, limit=10))
+
+        results = await asyncio.gather(*tasks)
+        all_news = [article for sublist in results for article in sublist]
 
         # Remove duplicates and sort
         unique_news = self._remove_duplicates(all_news)
@@ -207,7 +194,7 @@ class NewsService:
 
     async def get_forex_news(self, limit: int = 30) -> List[Dict[str, Any]]:
         """
-        Aggregates forex and currency-related news.
+        Aggregates forex and currency-related news from multiple sources in parallel.
 
         Args:
             limit (int): The maximum number of news articles to return.
@@ -215,19 +202,15 @@ class NewsService:
         Returns:
             List[Dict[str, Any]]: A sorted and deduplicated list of news articles.
         """
-        all_news = []
-
-        # NewsAPI
+        # --- ⚡ Bolt Optimization: Parallel News Fetching ---
+        tasks = []
         if self.newsapi_client:
-            newsapi_articles = await self._get_newsapi_articles(
-                "forex currency", limit=20
-            )
-            all_news.extend(newsapi_articles)
-
-        # Finnhub
+            tasks.append(self._get_newsapi_articles("forex currency", limit=20))
         if self.finnhub_client:
-            finnhub_articles = await self._get_finnhub_news("forex", limit=10)
-            all_news.extend(finnhub_articles)
+            tasks.append(self._get_finnhub_news("forex", limit=10))
+
+        results = await asyncio.gather(*tasks)
+        all_news = [article for sublist in results for article in sublist]
 
         # Remove duplicates and sort
         unique_news = self._remove_duplicates(all_news)
@@ -237,17 +220,22 @@ class NewsService:
 
     async def get_market_sentiment_news(self) -> Dict[str, Any]:
         """
-        Gathers a broad range of news for general market sentiment analysis.
+        Gathers news for sentiment analysis using parallel aggregation.
 
         Returns:
-            Dict[str, Any]: A dictionary containing aggregated news data, including
-                            counts and combined text for analysis.
+            Dict[str, Any]: A dictionary containing aggregated news data.
         """
         try:
-            # Get news from all categories
-            crypto_news = await self.get_crypto_news(limit=20)
-            stock_news = await self.get_stock_news(limit=20)
-            forex_news = await self.get_forex_news(limit=10)
+            # --- ⚡ Bolt Optimization: Parallel Category Fetching ---
+            # Fetching news from multiple categories in parallel further reduces
+            # latency when building a complete market sentiment picture.
+            crypto_task = self.get_crypto_news(limit=20)
+            stock_task = self.get_stock_news(limit=20)
+            forex_task = self.get_forex_news(limit=10)
+
+            crypto_news, stock_news, forex_news = await asyncio.gather(
+                crypto_task, stock_task, forex_task
+            )
 
             # Combine all news
             all_news = crypto_news + stock_news + forex_news

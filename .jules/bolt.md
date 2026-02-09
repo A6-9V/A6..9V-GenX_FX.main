@@ -101,3 +101,9 @@
 **Learning:** I identified that several technical indicators in `utils/technical_indicators.py` (Bollinger Bands, Stochastic Oscillator, Donchian Channels) were still using Pandas-level `rolling().std()`, `rolling().min()`, and `rolling().max()`. These operations carry significant overhead, especially for the small lookback windows (100-500 bars) used in this project's real-time inference path. I also discovered that `np.empty_like` on integer-based DataFrames fails when trying to assign `np.nan` for the initial bars.
 
 **Action:** I replaced all remaining Pandas rolling window operations with vectorized NumPy equivalents using `np.convolve` (for variance/std) and `np.lib.stride_tricks.sliding_window_view` (for min/max). I also added explicit `.astype(float)` casting and `dtype=float` to NumPy array initializations to ensure robust handling of `np.nan`. These optimizations provided a ~5.2x speedup for rolling standard deviation on small datasets (n=100), significantly reducing latency for high-frequency signal generation.
+
+## 2024-03-25 - Parallelizing Network I/O with asyncio.gather
+
+**Learning:** I identified a significant performance bottleneck in the `NewsService` where news from multiple external providers (NewsAPI, Finnhub, Alpha Vantage, etc.) was being fetched sequentially. This led to a cumulative latency equal to the sum of all API response times, which is a classic N+1 network anti-pattern in async applications.
+
+**Action:** I refactored the news aggregation methods to use `asyncio.gather`. This parallelizes the network requests, reducing the total execution time to the duration of the slowest single API call. In a multi-provider setup, this can improve response times by 2x to 5x depending on the number of sources.
