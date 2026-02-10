@@ -107,3 +107,9 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - Cross-Indicator Sum Reuse and Internal Caching
+
+**Learning:** I identified that multiple technical indicator categories (SMA, Volatility, Trend Strength) independently calculate the same rolling sums using `np.convolve`. While vectorized, repeating these convolutions for the same periods (e.g., 10, 20, 50, 100) across different methods is redundant. I also found that retrieving these values from the Pandas DataFrame by column name triggered more overhead than a simple internal dictionary cache.
+
+**Action:** I implemented a transient internal cache (`self._precomputed_sums`) in `TechnicalIndicators` that is populated during SMA calculation and reused in Volatility and Trend Strength methods. I also moved redundant element-wise operations (like `close**2`) outside of loops. This provided a cumulative ~9% speedup for the `add_all_indicators` method.
