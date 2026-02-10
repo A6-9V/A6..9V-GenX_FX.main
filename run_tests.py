@@ -4,10 +4,10 @@ Test runner for GenX Trading Platform
 Optimized for parallel execution, coverage reporting, and developer productivity.
 """
 
+import argparse
 import os
 import subprocess
 import sys
-import argparse
 import time
 
 

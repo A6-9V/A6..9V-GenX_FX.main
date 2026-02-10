@@ -1,11 +1,12 @@
+import logging
 import os
 import subprocess
 import sys
-import logging
-import typer
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
