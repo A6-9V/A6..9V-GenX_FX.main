@@ -29,7 +29,9 @@ def run_tests(parallel: bool = False, lint: bool = False, report: bool = False) 
         print("🔍 Running Linting (npm run lint)...")
         try:
             # We use npm run lint which is configured in package.json
-            lint_result = subprocess.run(["npm", "run", "lint"], capture_output=True, text=True)
+            lint_result = subprocess.run(
+                ["npm", "run", "lint"], capture_output=True, text=True
+            )
             if lint_result.returncode != 0:
                 print("❌ Linting failed!")
                 print(lint_result.stdout)
@@ -69,7 +71,9 @@ def run_tests(parallel: bool = False, lint: bool = False, report: bool = False) 
 
     # Add coverage if requested
     if report:
-        pytest_args.extend(["--cov=core", "--cov=api", "--cov=ai_models", "--cov-report=term-missing"])
+        pytest_args.extend(
+            ["--cov=core", "--cov=api", "--cov=ai_models", "--cov-report=term-missing"]
+        )
 
     # Run pytest
     try:
@@ -110,17 +114,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--parallel",
         action="store_true",
-        help="Run tests in parallel using pytest-xdist"
+        help="Run tests in parallel using pytest-xdist",
     )
+    parser.add_argument("--lint", action="store_true", help="Run linting before tests")
     parser.add_argument(
-        "--lint",
-        action="store_true",
-        help="Run linting before tests"
-    )
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="Generate coverage report"
+        "--report", action="store_true", help="Generate coverage report"
     )
     args = parser.parse_args()
 

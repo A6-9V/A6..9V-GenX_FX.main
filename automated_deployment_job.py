@@ -156,7 +156,9 @@ deployment_job = AutomatedDeploymentJob()
 
 @app.command()
 def deploy(
-    target: str = typer.Argument(..., help="Deployment target: aws-free, exness-vps, local"),
+    target: str = typer.Argument(
+        ..., help="Deployment target: aws-free, exness-vps, local"
+    ),
     environment: str = typer.Option(
         "production", help="Environment: development, staging, production"
     ),
