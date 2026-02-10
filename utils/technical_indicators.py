@@ -337,7 +337,8 @@ class TechnicalIndicators:
                         # ⚡ Bolt Optimization: Vectorized rolling std for all periods
                         # Optimized: Reuse precomputed sums to avoid redundant convolution
                         s = self._precomputed_sums.get(
-                            period, np.convolve(close_vals, np.ones(period), mode="valid")
+                            period,
+                            np.convolve(close_vals, np.ones(period), mode="valid"),
                         )
                         s2 = np.convolve(close_sq, np.ones(period), mode="valid")
                         var = (s2 - (s**2 / period)) / (period - 1)
@@ -666,7 +667,10 @@ class TechnicalIndicators:
             return pd.Series(np.nan, index=df.index)
 
     def _calculate_rolling_slope(
-        self, series: pd.Series, window: int, precomputed_sum: Optional[np.ndarray] = None
+        self,
+        series: pd.Series,
+        window: int,
+        precomputed_sum: Optional[np.ndarray] = None,
     ) -> pd.Series:
         """Calculate the slope of a linear regression over a rolling window."""
         try:
