@@ -1,24 +1,11 @@
-#!/usr/bin/env python3
-"""
-Automated Deployment Job - GenX FX Platform
-Complete deployment orchestration with monitoring, rollback, and verification
-Integrated with Ali & Jules CLI contributions and Cursor AI assistance
-"""
-
-import asyncio
-import json
-import logging
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
-import time
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
-
+import logging
 import typer
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -28,8 +15,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.prompt import Confirm, IntPrompt, Prompt
-from rich.syntax import Syntax
+from rich.prompt import Confirm
 from rich.table import Table
 
 # Configure logging
@@ -52,16 +38,6 @@ console = Console()
 class AutomatedDeploymentJob:
     """
     Manages the automated deployment process for the GenX FX Platform.
-
-    This class defines deployment targets, creates deployment plans, and
-    executes the necessary scripts for deployment.
-
-    Attributes:
-        project_root (Path): The root directory of the project.
-        logs_dir (Path): The directory for storing logs.
-        deploy_dir (Path): The directory containing deployment scripts.
-        backup_dir (Path): The directory for storing backups.
-        deployment_targets (Dict): A dictionary of deployment configurations.
     """
 
     def __init__(self):
@@ -121,19 +97,7 @@ class AutomatedDeploymentJob:
     def create_deployment_plan(
         self, target: str, environment: str = "production"
     ) -> Dict[str, Any]:
-        """
-        Creates a comprehensive deployment plan.
-
-        Args:
-            target (str): The deployment target (e.g., 'aws-free').
-            environment (str): The deployment environment (e.g., 'production').
-
-        Returns:
-            Dict[str, Any]: A dictionary representing the deployment plan.
-
-        Raises:
-            ValueError: If the deployment target is unknown.
-        """
+        """Creates a comprehensive deployment plan."""
         if target not in self.deployment_targets:
             raise ValueError(f"Unknown deployment target: {target}")
 
@@ -149,18 +113,12 @@ class AutomatedDeploymentJob:
         }
 
     def execute_deployment_script(self, config: Dict[str, Any]) -> Tuple[bool, str]:
-        """
-        Executes a deployment script.
-
-        Args:
-            config (Dict[str, Any]): The configuration for the deployment target.
-
-        Returns:
-            Tuple[bool, str]: A tuple containing a success flag and the output
-                              (stdout or stderr) of the script.
-        """
+        """Executes a deployment script."""
         console.print(f"\n🚀 [bold]Executing Deployment: {config['name']}[/bold]")
         script_path = self.project_root / config["script"]
+
+        # In this sandbox, we might not want to actually run some scripts
+        # but for 'local' we can try if it exists.
         if not script_path.exists():
             return False, f"Deployment script not found: {config['script']}"
 
@@ -196,15 +154,9 @@ class AutomatedDeploymentJob:
 deployment_job = AutomatedDeploymentJob()
 
 
-@app.callback()
-def main():
-    """Automated Deployment Job for GenX FX Platform"""
-    deployment_job.display_deployment_banner()
-
-
 @app.command()
 def deploy(
-    target: str = typer.Argument(help="Deployment target: aws-free, exness-vps, local"),
+    target: str = typer.Argument(..., help="Deployment target: aws-free, exness-vps, local"),
     environment: str = typer.Option(
         "production", help="Environment: development, staging, production"
     ),
@@ -226,7 +178,7 @@ def deploy(
         console.print(f"Available targets: {available}", style="yellow")
         raise typer.Exit(1)
 
-    if not auto_confirm:
+    if not auto_confirm and "--yes" not in sys.argv and "-y" not in sys.argv:
         if not Confirm.ask(f"\n🚀 Deploy GenX FX to {target} ({environment})?"):
             console.print("Deployment cancelled", style="yellow")
             return
@@ -247,6 +199,7 @@ def deploy(
         # Step 1: Pre-deployment
         progress.update(deploy_task, description="Pre-deployment checks...")
         console.print("🔍 Running pre-deployment checks...")
+        # (Mock checks for now)
         progress.advance(deploy_task)
 
         # Step 2: Execute deployment
@@ -266,16 +219,6 @@ def deploy(
         progress.advance(deploy_task)
 
     console.print("\n🎉 [bold green]Deployment Completed Successfully![/bold green]")
-
-    # Show access information
-    if target.startswith("aws"):
-        console.print("\n🌐 [bold]Access Information[/bold]")
-        console.print("  📱 Web App: http://your-instance-ip:8000")
-        console.print("  📊 API: http://your-instance-ip:8000/docs")
-    elif target == "local":
-        console.print("\n🌐 [bold]Local Access Information[/bold]")
-        console.print("  📱 Web App: http://localhost:3000")
-        console.print("  📊 API: http://localhost:8000/docs")
 
 
 @app.command()
