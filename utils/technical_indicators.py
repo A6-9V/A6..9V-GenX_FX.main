@@ -242,14 +242,16 @@ class TechnicalIndicators:
     def add_volatility_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add volatility-based indicators"""
         try:
+            # ⚡ Bolt Optimization: Pre-extract raw values to avoid Series overhead
+            high_vals = df["high"].values.astype(float)
+            low_vals = df["low"].values.astype(float)
+            close_vals = df["close"].values.astype(float)
+            close_vals_sq = close_vals**2  # Pre-calculate for variance loops
+
             # Average True Range (ATR)
             if len(df) >= 14:
-                # ⚡ Bolt Optimization: Fully vectorized ATR
+                # ⚡ Bolt Optimization: Fully vectorized ATR (SMA-based)
                 # Using NumPy for shifting and convolution to bypass Pandas overhead.
-                high_vals = df["high"].values.astype(float)
-                low_vals = df["low"].values.astype(float)
-                close_vals = df["close"].values.astype(float)
-
                 prev_close = np.empty_like(close_vals, dtype=float)
                 prev_close[0] = np.nan
                 prev_close[1:] = close_vals[:-1]
@@ -286,10 +288,9 @@ class TechnicalIndicators:
                 # ⚡ Bolt Optimization: Vectorized rolling std
                 # Replaces slow pd.Series.rolling().std() with vectorized variance formula.
                 # ---
-                close_vals_20 = df["close"].values
                 kernel20 = np.ones(20)
-                s20 = np.convolve(close_vals_20, kernel20, mode="valid")
-                s2_20 = np.convolve(close_vals_20**2, kernel20, mode="valid")
+                s20 = np.convolve(close_vals, kernel20, mode="valid")
+                s2_20 = np.convolve(close_vals_sq, kernel20, mode="valid")
                 var20 = (s2_20 - (s20**2 / 20)) / 19
                 std_20_vals = np.sqrt(np.maximum(var20, 0))
 
@@ -318,7 +319,6 @@ class TechnicalIndicators:
 
             # Volatility indicators (Optimized: Reuse std_20 and vectorize others)
             periods = [10, 20, 50, 100]
-            close_vals = df["close"].values
             for period in periods:
                 if len(df) >= period:
                     col_name = f"volatility_{period}"
@@ -328,7 +328,7 @@ class TechnicalIndicators:
                         # ⚡ Bolt Optimization: Vectorized rolling std for all periods
                         kernel = np.ones(period)
                         s = np.convolve(close_vals, kernel, mode="valid")
-                        s2 = np.convolve(close_vals**2, kernel, mode="valid")
+                        s2 = np.convolve(close_vals_sq, kernel, mode="valid")
                         var = (s2 - (s**2 / period)) / (period - 1)
                         vol_vals = np.full(len(df), np.nan)
                         vol_vals[period - 1 :] = np.sqrt(np.maximum(var, 0))
@@ -517,19 +517,22 @@ class TechnicalIndicators:
     def add_support_resistance(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add support and resistance levels"""
         try:
+            # ⚡ Bolt Optimization: Pre-extract raw values to avoid Series overhead
+            # and ensure numerical stability with float casting.
+            high_vals = df["high"].values.astype(float)
+            low_vals = df["low"].values.astype(float)
+            close_vals = df["close"].values.astype(float)
+
             # Pivot Points
             if len(df) >= 1:
                 # Reuse pre-calculated typical_price for pivot points
                 # ---
                 # ⚡ Bolt Optimization: Use raw numpy values for pivot arithmetic
                 # ---
-                high_vals = df["high"].values
-                low_vals = df["low"].values
-
                 pivot = (
                     df["typical_price"].values
                     if "typical_price" in df.columns
-                    else (high_vals + low_vals + df["close"].values) / 3
+                    else (high_vals + low_vals + close_vals) / 3
                 )
 
                 df["pivot"] = pivot
@@ -548,13 +551,11 @@ class TechnicalIndicators:
                         low_min_vals = df["donchian_lower"].values
                     else:
                         # ⚡ Bolt Optimization: Vectorized rolling min/max
-                        h_vals = df["high"].values
-                        l_vals = df["low"].values
                         h_windows = np.lib.stride_tricks.sliding_window_view(
-                            h_vals, period
+                            high_vals, period
                         )
                         l_windows = np.lib.stride_tricks.sliding_window_view(
-                            l_vals, period
+                            low_vals, period
                         )
 
                         high_max_vals = np.full(len(df), np.nan)
@@ -566,7 +567,6 @@ class TechnicalIndicators:
                     # ---
                     # ⚡ Bolt Optimization: Use raw numpy values for position arithmetic
                     # ---
-                    close_vals = df["close"].values
                     range_val = high_max_vals - low_min_vals
 
                     df[f"price_position_{period}"] = (
@@ -658,6 +658,7 @@ class TechnicalIndicators:
             # Replaced the slow `rolling().apply(np.polyfit)` with a vectorized
             # implementation using numpy convolution and rolling sums. This avoids
             # Python-level loops and the overhead of calling polyfit thousands of times.
+            # Optimized to avoid intermediate Series overhead.
             # ---
             n = window
             if len(series) < n:
@@ -667,20 +668,22 @@ class TechnicalIndicators:
             # sum((i - x_mean)^2) for i = 0 to n-1
             sum_x2 = n * (n**2 - 1) / 12
 
+            y_vals = series.values
+
             # ⚡ Bolt Optimization: Use np.convolve for rolling sum
-            y_sum_vals = np.convolve(series.values, np.ones(n), mode="valid")
-            y_sum = pd.Series(np.nan, index=series.index)
-            y_sum.iloc[n - 1 :] = y_sum_vals
+            y_sum_vals = np.convolve(y_vals, np.ones(n), mode="valid")
 
             # Use convolution for sum(i * y_i)
             # To get sum_{i=0}^{n-1} i * y_{t-n+1+i}, we use weights [n-1, n-2, ..., 0]
             weights = np.arange(n - 1, -1, -1)
-            sum_iy = np.convolve(series.values, weights, mode="valid")
+            sum_iy_vals = np.convolve(y_vals, weights, mode="valid")
 
-            # Align the result with the original series index
-            sum_iy_series = pd.Series(sum_iy, index=series.index[n - 1 :])
+            # Calculate slope in NumPy to avoid index alignment overhead
+            slope_vals = (sum_iy_vals - x_mean * y_sum_vals) / sum_x2
 
-            slope = (sum_iy_series - x_mean * y_sum) / sum_x2
+            # Return a single Series to align with original DataFrame
+            slope = pd.Series(np.nan, index=series.index)
+            slope.iloc[n - 1 :] = slope_vals
             return slope
 
         except Exception as e:
