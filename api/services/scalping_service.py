@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pandas as pd
 import talib
@@ -20,11 +20,13 @@ class ScalpingService:
         Analyzes the dataframe based on the specified timeframe strategy.
 
         Args:
-            df (pd.DataFrame): OHLCV data. Must contain 'open', 'high', 'low', 'close', 'volume'.
+            df (pd.DataFrame): OHLCV data.
+                Must contain 'open', 'high', 'low', 'close', 'volume'.
             timeframe (str): One of "5m", "15m", "30m".
 
         Returns:
-            Dict[str, Any]: Signal details including 'action' (BUY, SELL, NEUTRAL), 'confidence', and 'reasoning'.
+            Dict[str, Any]: Signal details including 'action' (BUY, SELL,
+                NEUTRAL), 'confidence', and 'reasoning'.
         """
         # Ensure required columns exist
         required_cols = ["open", "high", "low", "close", "volume"]
@@ -146,7 +148,6 @@ class ScalpingService:
         )
         rsi = talib.RSI(close_vals, timeperiod=14)
 
-        c_close = close_vals[-1]
         c_low = low_vals[-1]
         c_high = high_vals[-1]
         c_upper = upper[-1]

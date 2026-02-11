@@ -615,12 +615,13 @@ class TechnicalIndicators:
             # Standard SAR uses af_increment for both start and increment.
             if HAS_TALIB:
                 try:
-                    sar = talib.SAR(high, low, acceleration=af_increment, maximum=af_max)
+                    sar = talib.SAR(
+                        high, low, acceleration=af_increment, maximum=af_max
+                    )
                     return pd.Series(sar, index=df.index)
                 except Exception as e:
                     logger.warning(f"TA-Lib SAR failed, falling back to manual: {e}")
 
-            close = df["close"].values
             length = len(df)
             sar = np.zeros(length)
             trend = np.zeros(length)
