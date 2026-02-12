@@ -242,6 +242,11 @@ class TechnicalIndicators:
     def add_volatility_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add volatility-based indicators"""
         try:
+            # ⚡ Bolt: Pre-calculate squared values once to avoid redundant work across
+            # Bollinger Bands and other volatility indicators.
+            close_vals_raw = df["close"].values
+            close_sq = close_vals_raw**2
+
             # Average True Range (ATR)
             if len(df) >= 14:
                 # ⚡ Bolt Optimization: Fully vectorized ATR
@@ -286,10 +291,11 @@ class TechnicalIndicators:
                 # ⚡ Bolt Optimization: Vectorized rolling std
                 # Replaces slow pd.Series.rolling().std() with vectorized variance formula.
                 # ---
-                close_vals_20 = df["close"].values
+                # ⚡ Bolt: Reuse SMA values for rolling sum to bypass redundant convolution
+                s20 = sma_vals[20 - 1 :] * 20
                 kernel20 = np.ones(20)
-                s20 = np.convolve(close_vals_20, kernel20, mode="valid")
-                s2_20 = np.convolve(close_vals_20**2, kernel20, mode="valid")
+                # ⚡ Bolt: Use pre-calculated squared values
+                s2_20 = np.convolve(close_sq, kernel20, mode="valid")
                 var20 = (s2_20 - (s20**2 / 20)) / 19
                 std_20_vals = np.sqrt(np.maximum(var20, 0))
 
@@ -327,8 +333,14 @@ class TechnicalIndicators:
                     else:
                         # ⚡ Bolt Optimization: Vectorized rolling std for all periods
                         kernel = np.ones(period)
-                        s = np.convolve(close_vals, kernel, mode="valid")
-                        s2 = np.convolve(close_vals**2, kernel, mode="valid")
+                        # ⚡ Bolt: Reuse pre-calculated SMA if available
+                        if f"sma_{period}" in df.columns:
+                            s = df[f"sma_{period}"].values[period - 1 :] * period
+                        else:
+                            s = np.convolve(close_vals, kernel, mode="valid")
+
+                        # ⚡ Bolt: Use pre-calculated squared values
+                        s2 = np.convolve(close_sq, kernel, mode="valid")
                         var = (s2 - (s**2 / period)) / (period - 1)
                         vol_vals = np.full(len(df), np.nan)
                         vol_vals[period - 1 :] = np.sqrt(np.maximum(var, 0))
@@ -503,9 +515,14 @@ class TechnicalIndicators:
             periods = [10, 20, 50]
             for period in periods:
                 if len(df) >= period:
+                    # ⚡ Bolt: Reuse pre-calculated SMA if available to avoid redundant rolling sum
+                    y_sum = None
+                    if f"sma_{period}" in df.columns:
+                        y_sum = df[f"sma_{period}"] * period
+
                     # Linear regression slope (Vectorized for performance)
                     df[f"trend_strength_{period}"] = self._calculate_rolling_slope(
-                        df["close"], period
+                        df["close"], period, y_sum=y_sum
                     )
 
             return df
@@ -650,7 +667,9 @@ class TechnicalIndicators:
             logger.error(f"Error calculating Parabolic SAR: {e}")
             return pd.Series(np.nan, index=df.index)
 
-    def _calculate_rolling_slope(self, series: pd.Series, window: int) -> pd.Series:
+    def _calculate_rolling_slope(
+        self, series: pd.Series, window: int, y_sum: Optional[pd.Series] = None
+    ) -> pd.Series:
         """Calculate the slope of a linear regression over a rolling window."""
         try:
             # ---
@@ -667,21 +686,23 @@ class TechnicalIndicators:
             # sum((i - x_mean)^2) for i = 0 to n-1
             sum_x2 = n * (n**2 - 1) / 12
 
-            # ⚡ Bolt Optimization: Use np.convolve for rolling sum
-            y_sum_vals = np.convolve(series.values, np.ones(n), mode="valid")
-            y_sum = pd.Series(np.nan, index=series.index)
-            y_sum.iloc[n - 1 :] = y_sum_vals
+            # ⚡ Bolt Optimization: Use pre-calculated y_sum if available
+            # ⚡ Bolt: Extract .values once to bypass Series alignment overhead
+            if y_sum is None:
+                y_sum_vals = np.convolve(series.values, np.ones(n), mode="valid")
+            else:
+                y_sum_vals = y_sum.values[n - 1 :]
 
             # Use convolution for sum(i * y_i)
             # To get sum_{i=0}^{n-1} i * y_{t-n+1+i}, we use weights [n-1, n-2, ..., 0]
             weights = np.arange(n - 1, -1, -1)
-            sum_iy = np.convolve(series.values, weights, mode="valid")
+            sum_iy_vals = np.convolve(series.values, weights, mode="valid")
 
-            # Align the result with the original series index
-            sum_iy_series = pd.Series(sum_iy, index=series.index[n - 1 :])
+            # ⚡ Bolt: Use raw numpy arithmetic for the final slope calculation
+            # Benchmarking shows that bypassing Series arithmetic here is much faster.
+            slope_vals = (sum_iy_vals - x_mean * y_sum_vals) / sum_x2
 
-            slope = (sum_iy_series - x_mean * y_sum) / sum_x2
-            return slope
+            return pd.Series(slope_vals, index=series.index[n - 1 :])
 
         except Exception as e:
             logger.error(f"Error calculating rolling slope: {e}")
