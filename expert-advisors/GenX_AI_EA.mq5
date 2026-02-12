@@ -91,7 +91,7 @@ int OnInit() {
         uchar req_body[];
         uchar resp_body[];
         string resp_headers = "";
-        int status = WebRequest("GET", url, "", "", 5000, req_body, 0, resp_body, resp_headers);
+        int status = WebRequest("GET", url, "", "", Request_Timeout, req_body, 0, resp_body, resp_headers);
         if (status == -1) {
             PrintFormat("WebRequest to %s (host %s) failed, error %d", url, domain, GetLastError());
         }
@@ -357,8 +357,6 @@ bool ParseTradingSignal(string message, TradingSignal &signal) {
     signal.magic_number = Magic_Number;
     signal.comment = "GenX AI Signal";
     signal.timestamp = TimeCurrent();
-    signal.stop_loss = (signal.stop_loss == 0) ? 0 : signal.stop_loss;
-    signal.take_profit = (signal.take_profit == 0) ? 0 : signal.take_profit;
     
     // Validate signal
     if (signal.signal_id == "" || signal.instrument == "" || signal.action == "") {

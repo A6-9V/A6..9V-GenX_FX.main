@@ -21,6 +21,23 @@ pending_signals: List[Dict[str, Any]] = []
 trade_results: List[Dict[str, Any]] = []
 
 
+def get_or_create_ea_id(data: Dict[str, Any]) -> str:
+    """
+    Extract or create EA identifier from message data.
+    Uses account number and magic number if available, otherwise creates a temporary ID.
+    """
+    # Try to extract from various possible data structures
+    account = data.get("account") or data.get("account_number")
+    magic = data.get("magic_number") or data.get("magic")
+    
+    if account and magic:
+        return f"{account}_{magic}"
+    
+    # Fallback to a default ID if we can't identify the EA
+    # In production, this should be handled by requiring proper authentication
+    return "default_ea"
+
+
 # Pydantic models for request/response validation
 class EAInfo(BaseModel):
     """Expert Advisor information"""
@@ -157,17 +174,22 @@ async def heartbeat(request: MessageRequest):
     try:
         heartbeat_data = request.data
         
-        # Update last seen time for all EAs or specific one if identifiable
-        # In production, use proper EA identification
-        for ea_id in ea_connections:
-            ea_connections[ea_id]["last_seen"] = datetime.utcnow()
-            ea_connections[ea_id]["heartbeat"] = heartbeat_data
+        # Identify the specific EA sending the heartbeat
+        ea_id = get_or_create_ea_id(heartbeat_data)
         
-        logger.debug(f"Heartbeat received: {heartbeat_data}")
+        # Update or create EA connection record
+        if ea_id not in ea_connections:
+            ea_connections[ea_id] = {"status": "connected"}
+        
+        ea_connections[ea_id]["last_seen"] = datetime.utcnow()
+        ea_connections[ea_id]["heartbeat"] = heartbeat_data
+        
+        logger.debug(f"Heartbeat received from EA {ea_id}: {heartbeat_data}")
         
         return {
             "status": "success",
             "message": "Heartbeat acknowledged",
+            "ea_id": ea_id,
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
@@ -189,18 +211,24 @@ async def account_status(request: MessageRequest):
     try:
         status_data = request.data
         
-        # Update account status for connected EAs
-        for ea_id in ea_connections:
-            ea_connections[ea_id]["account_status"] = status_data
-            ea_connections[ea_id]["last_status_update"] = datetime.utcnow()
+        # Identify the specific EA sending the status
+        ea_id = get_or_create_ea_id(status_data)
         
-        logger.info(f"Account status received - Balance: {status_data.get('balance')}, "
+        # Update or create EA connection record
+        if ea_id not in ea_connections:
+            ea_connections[ea_id] = {"status": "connected"}
+        
+        ea_connections[ea_id]["account_status"] = status_data
+        ea_connections[ea_id]["last_status_update"] = datetime.utcnow()
+        
+        logger.info(f"Account status received from EA {ea_id} - Balance: {status_data.get('balance')}, "
                    f"Equity: {status_data.get('equity')}, "
                    f"Positions: {status_data.get('open_positions')}")
         
         return {
             "status": "success",
             "message": "Account status received",
+            "ea_id": ea_id,
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
