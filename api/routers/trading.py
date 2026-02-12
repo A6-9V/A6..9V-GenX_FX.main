@@ -6,15 +6,9 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from ..config import settings
-from ..models.schemas import (
-    OrderRequest,
-    OrderResponse,
-    OrderStatus,
-    OrderType,
-    PortfolioStatus,
-    SignalType,
-    TradeSignal,
-)
+from ..models.schemas import (OrderRequest, OrderResponse, OrderStatus,
+                              OrderType, PortfolioStatus, SignalType,
+                              TradeSignal)
 from ..services.risk_service import RiskService
 from ..services.trading_service import TradingService
 from ..utils.auth import get_current_user

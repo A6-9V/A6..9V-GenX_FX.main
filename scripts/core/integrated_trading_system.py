@@ -17,12 +17,8 @@ import pandas as pd
 # Import all our custom services
 sys.path.append("/opt/genx")
 from ai_models.ensemble_predictor import create_ensemble_predictor
-from api.services.asset_manager import (
-    AccountSummary,
-    ClosedTrade,
-    Position,
-    create_asset_manager,
-)
+from api.services.asset_manager import (AccountSummary, ClosedTrade, Position,
+                                        create_asset_manager)
 from api.services.ea_communication import TradingSignal, create_ea_server
 from api.services.enhanced_gemini_service import create_enhanced_gemini_service
 from api.services.fxcm_service import TradeSignal, create_fxcm_service

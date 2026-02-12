@@ -59,6 +59,60 @@ def test_wma_logic():
     assert pytest.approx(result["wma_5"].iloc[5]) == 700 / 15
 
 
+def test_bollinger_bands_and_volatility_correctness():
+    """Verify Bollinger Bands and Volatility indicators logic matches Pandas baseline"""
+    ti = TechnicalIndicators()
+    n = 100
+    # Seed for reproducibility
+    np.random.seed(42)
+    close = np.random.randn(n).cumsum() + 100
+    df = pd.DataFrame(
+        {
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "volume": np.ones(n) * 1000,
+        }
+    )
+
+    # add_all_indicators will trigger Bollinger Bands and Volatility calculations
+    result = ti.add_all_indicators(df)
+
+    # 1. Verify Bollinger Bands
+    assert "bb_upper" in result.columns
+    assert "bb_lower" in result.columns
+    assert "bb_middle" in result.columns
+
+    # Reference calculation using Pandas
+    expected_sma20 = df["close"].rolling(20).mean()
+    expected_std20 = df["close"].rolling(20).std(ddof=1)
+    expected_upper = expected_sma20 + 2 * expected_std20
+    expected_lower = expected_sma20 - 2 * expected_std20
+
+    # Compare with Bolt optimized versions
+    # We skip NaNs (first 19 bars)
+    mask = ~np.isnan(expected_upper)
+    np.testing.assert_array_almost_equal(
+        result["bb_upper"].values[mask], expected_upper.values[mask]
+    )
+    np.testing.assert_array_almost_equal(
+        result["bb_lower"].values[mask], expected_lower.values[mask]
+    )
+    np.testing.assert_array_almost_equal(
+        result["bb_middle"].values[mask], expected_sma20.values[mask]
+    )
+
+    # 2. Verify Generic Volatility Indicators (periods 10, 20, 50, 100)
+    for period in [10, 20, 50]:
+        col = f"volatility_{period}"
+        assert col in result.columns
+        expected_std = df["close"].rolling(period).std(ddof=1)
+        mask = ~np.isnan(expected_std)
+        np.testing.assert_array_almost_equal(
+            result[col].values[mask], expected_std.values[mask], decimal=5
+        )
+
+
 def test_ad_line_logic():
     ti = TechnicalIndicators()
     df = pd.DataFrame(

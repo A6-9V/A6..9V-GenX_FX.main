@@ -5,15 +5,9 @@ from typing import Any, Dict, List, Optional
 
 from utils.retry_handler import retry_async
 
-from ..models.schemas import (
-    OrderRequest,
-    OrderResponse,
-    OrderStatus,
-    OrderType,
-    PortfolioStatus,
-    SignalType,
-    TradeSignal,
-)
+from ..models.schemas import (OrderRequest, OrderResponse, OrderStatus,
+                              OrderType, PortfolioStatus, SignalType,
+                              TradeSignal)
 
 logger = logging.getLogger(__name__)
 
