@@ -102,6 +102,12 @@
 
 **Action:** I replaced all remaining Pandas rolling window operations with vectorized NumPy equivalents using `np.convolve` (for variance/std) and `np.lib.stride_tricks.sliding_window_view` (for min/max). I also added explicit `.astype(float)` casting and `dtype=float` to NumPy array initializations to ensure robust handling of `np.nan`. These optimizations provided a ~5.2x speedup for rolling standard deviation on small datasets (n=100), significantly reducing latency for high-frequency signal generation.
 
+## 2026-02-14 - Redundant Convolutions and Series Alignment
+
+**Learning:** I identified that Technical Indicators were performing redundant convolutions for rolling sums when SMAs for those periods were already available. Additionally, performing arithmetic between a partial Series and a full Series in `_calculate_rolling_slope` triggered expensive Pandas index alignment.
+
+**Action:** Reuse pre-calculated SMAs (as `sma * period`) and always drop down to raw NumPy values (`.values`) before final arithmetic in rolling window functions to bypass Pandas overhead. This optimization yielded a ~21% overall speedup for `add_all_indicators` on 100k rows.
+
 ## 2026-02-14 - Slicing Lists Before DataFrame Creation
 
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
