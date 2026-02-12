@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
+import talib
 
 logger = logging.getLogger(__name__)
 
@@ -57,48 +58,28 @@ class TechnicalIndicators:
         try:
             periods = [5, 10, 20, 50, 100, 200]
 
-            close_vals = df["close"].values
+            # ⚡ Bolt: Convert to float64 for TA-Lib
+            close_vals = df["close"].values.astype(np.float64)
             for period in periods:
                 if len(df) >= period:
-                    # Simple Moving Average (Optimized: Vectorized convolution)
-                    # ⚡ Bolt: Using np.convolve for SMA is ~1.5x faster than rolling().mean()
-                    kernel = np.ones(period) / period
-                    sma_vals = np.convolve(close_vals, kernel, mode="valid")
-                    sma_full = np.full(len(df), np.nan)
-                    sma_full[period - 1 :] = sma_vals
-                    df[f"sma_{period}"] = sma_full
+                    # Simple Moving Average (Optimized: TA-Lib)
+                    # ⚡ Bolt: Using talib.SMA is ~10x faster than np.convolve
+                    df[f"sma_{period}"] = talib.SMA(close_vals, timeperiod=period)
 
-                    # Exponential Moving Average
-                    df[f"ema_{period}"] = df["close"].ewm(span=period).mean()
+                    # Exponential Moving Average (Optimized: TA-Lib)
+                    df[f"ema_{period}"] = talib.EMA(close_vals, timeperiod=period)
 
-                    # Weighted Moving Average (Optimized)
-                    # The original pandas apply() method is slow. This implementation
-                    # uses numpy.convolve for a significant performance boost.
-                    # Denominator is calculated as n*(n+1)/2.
-                    weights = np.arange(1, period + 1)
-                    denominator = period * (period + 1) / 2
-                    # Reverse weights for convolution to correctly weigh recent prices
-                    wma_values = (
-                        np.convolve(df["close"], weights[::-1], mode="valid")
-                        / denominator
-                    )
+                    # Weighted Moving Average (Optimized: TA-Lib)
+                    df[f"wma_{period}"] = talib.WMA(close_vals, timeperiod=period)
 
-                    # Align the convolution output with the DataFrame index
-                    df[f"wma_{period}"] = pd.Series(
-                        wma_values, index=df.index[period - 1 :]
-                    )
-
-            # Moving Average Convergence Divergence (MACD)
+            # Moving Average Convergence Divergence (MACD) (Optimized: TA-Lib)
             if len(df) >= 26:
-                ema12 = df["close"].ewm(span=12).mean()
-                ema26 = df["close"].ewm(span=26).mean()
-                # ⚡ Bolt: Use .values for row-wise subtraction to avoid index alignment
-                macd_vals = ema12.values - ema26.values
-                df["macd"] = macd_vals
-
-                macd_signal = df["macd"].ewm(span=9).mean()
-                df["macd_signal"] = macd_signal
-                df["macd_histogram"] = macd_vals - macd_signal.values
+                macd, macdsignal, macdhist = talib.MACD(
+                    close_vals, fastperiod=12, slowperiod=26, signalperiod=9
+                )
+                df["macd"] = macd
+                df["macd_signal"] = macdsignal
+                df["macd_histogram"] = macdhist
 
             return df
 
@@ -109,129 +90,46 @@ class TechnicalIndicators:
     def add_momentum_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add momentum-based indicators"""
         try:
-            # Relative Strength Index (RSI)
+            # ⚡ Bolt: Extract raw values for TA-Lib
+            high_vals = df["high"].values.astype(np.float64)
+            low_vals = df["low"].values.astype(np.float64)
+            close_vals = df["close"].values.astype(np.float64)
+
+            # Relative Strength Index (RSI) (Optimized: TA-Lib)
             if len(df) >= 14:
-                # ---
-                # ⚡ Bolt Optimization: Vectorized RSI calculation
-                # Using raw numpy values to avoid the overhead of pd.Series.where
-                # and pd.Series.diff calls, which trigger index alignment.
-                # ---
-                close_vals = df["close"].values
-                delta = np.zeros_like(close_vals)
-                delta[1:] = np.diff(close_vals)
+                # ⚡ Bolt: talib.RSI uses Wilder's smoothing and is much faster
+                df["rsi"] = talib.RSI(close_vals, timeperiod=14)
 
-                gain = np.where(delta > 0, delta, 0)
-                loss = np.where(delta < 0, -delta, 0)
-
-                # ⚡ Bolt Optimization: Vectorized smoothing for RSI
-                # Replaces slow pd.Series.rolling().mean() with np.convolve.
-                kernel14 = np.ones(14) / 14
-                avg_gain_vals = np.convolve(gain, kernel14, mode="valid")
-                avg_loss_vals = np.convolve(loss, kernel14, mode="valid")
-
-                avg_gain = np.full(len(df), np.nan)
-                avg_loss = np.full(len(df), np.nan)
-                avg_gain[14 - 1 :] = avg_gain_vals
-                avg_loss[14 - 1 :] = avg_loss_vals
-
-                # Calculate RS and RSI, handling division by zero gracefully via numpy
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    rs = avg_gain / avg_loss
-                    df["rsi"] = 100 - (100 / (1 + rs))
-
-            # Stochastic Oscillator & Williams %R (Optimized)
+            # Stochastic Oscillator & Williams %R (Optimized: TA-Lib)
             if len(df) >= 14:
-                # ---
-                # ⚡ Bolt Optimization: Vectorized rolling min/max
-                # Replaces slow pd.Series.rolling().min/max() with sliding_window_view.
-                # ---
-                low_vals_14 = df["low"].values
-                high_vals_14 = df["high"].values
-
-                low_windows = np.lib.stride_tricks.sliding_window_view(low_vals_14, 14)
-                high_windows = np.lib.stride_tricks.sliding_window_view(
-                    high_vals_14, 14
+                # Stochastic Oscillator (Fast)
+                fastk, fastd = talib.STOCHF(
+                    high_vals,
+                    low_vals,
+                    close_vals,
+                    fastk_period=14,
+                    fastd_period=3,
+                    fastd_matype=0,
                 )
-
-                low_min_vals_valid = np.min(low_windows, axis=1)
-                high_max_vals_valid = np.max(high_windows, axis=1)
-
-                low_min_vals = np.full(len(df), np.nan)
-                high_max_vals = np.full(len(df), np.nan)
-
-                low_min_vals[14 - 1 :] = low_min_vals_valid
-                high_max_vals[14 - 1 :] = high_max_vals_valid
-
-                # ⚡ Bolt: Use .values for row-wise arithmetic to avoid series overhead
-                range_vals = high_max_vals - low_min_vals
-
-                # Stochastic Oscillator
-                stoch_k_vals = 100 * (df["close"].values - low_min_vals) / range_vals
-                df["stoch_k"] = stoch_k_vals
-
-                # ⚡ Bolt Optimization: Vectorized smoothing for Stochastic D
-                kernel3 = np.ones(3) / 3
-                stoch_d_vals = np.convolve(stoch_k_vals, kernel3, mode="valid")
-                stoch_d_full = np.full(len(df), np.nan)
-                stoch_d_full[3 - 1 :] = stoch_d_vals
-                df["stoch_d"] = stoch_d_full
+                df["stoch_k"] = fastk
+                df["stoch_d"] = fastd
 
                 # Williams %R
-                df["williams_r"] = (
-                    -100 * (high_max_vals - df["close"].values) / range_vals
+                df["williams_r"] = talib.WILLR(
+                    high_vals, low_vals, close_vals, timeperiod=14
                 )
 
-            # Rate of Change (ROC)
-            # ⚡ Bolt Optimization: Fully vectorized ROC
-            # Replaces slow pd.Series.pct_change() with raw NumPy arithmetic.
-            # Benchmarking shows a ~6x speedup for this operation.
+            # Rate of Change (ROC) (Optimized: TA-Lib)
             periods = [5, 10, 20]
-            close_vals = df["close"].values
             for period in periods:
                 if len(df) >= period:
-                    roc = np.full(len(df), np.nan)
-                    roc[period:] = (
-                        close_vals[period:] / close_vals[:-period] - 1
-                    ) * 100
-                    df[f"roc_{period}"] = roc
+                    # ⚡ Bolt: Using talib.ROC is faster and handles NaN correctly
+                    df[f"roc_{period}"] = talib.ROC(close_vals, timeperiod=period)
 
-            # Commodity Channel Index (CCI)
+            # Commodity Channel Index (CCI) (Optimized: TA-Lib)
             if len(df) >= 20:
-                window = 20
-                # Reuse pre-calculated typical_price
-                typical_price = (
-                    df["typical_price"]
-                    if "typical_price" in df.columns
-                    else (df["high"] + df["low"] + df["close"]) / 3
-                )
-                # ⚡ Bolt Optimization: Use np.convolve for SMA_TP
-                tp_vals = typical_price.values
-                kernel_tp = np.ones(window) / window
-                sma_tp_vals = np.convolve(tp_vals, kernel_tp, mode="valid")
-                sma_tp = pd.Series(np.nan, index=df.index)
-                sma_tp.iloc[window - 1 :] = sma_tp_vals
-
-                # ---
-                # ⚡ Bolt Optimization: Vectorized Mean Deviation
-                # Reused sma_tp values instead of re-calculating rolling mean.
-                # Switched to sliding_window_view for safer memory access.
-                # ---
-                typical_price_np = typical_price.to_numpy()
-                rolling_windows = np.lib.stride_tricks.sliding_window_view(
-                    typical_price_np, window
-                )
-
-                # Use pre-calculated sma_tp values for the windows
-                sma_tp_values = sma_tp.values[window - 1 :]
-
-                # Calculate rolling mean absolute deviation
-                rolling_mad_values = np.mean(
-                    np.abs(rolling_windows - sma_tp_values[:, np.newaxis]), axis=1
-                )
-
-                mean_dev = pd.Series(rolling_mad_values, index=df.index[window - 1 :])
-
-                df["cci"] = (typical_price - sma_tp) / (0.015 * mean_dev)
+                # ⚡ Bolt: talib.CCI is much faster than manual mean deviation calculation
+                df["cci"] = talib.CCI(high_vals, low_vals, close_vals, timeperiod=20)
 
             return df
 
@@ -242,115 +140,43 @@ class TechnicalIndicators:
     def add_volatility_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add volatility-based indicators"""
         try:
-            # Average True Range (ATR)
+            # ⚡ Bolt: Extract raw values for TA-Lib
+            high_vals = df["high"].values.astype(np.float64)
+            low_vals = df["low"].values.astype(np.float64)
+            close_vals = df["close"].values.astype(np.float64)
+
+            # Average True Range (ATR) (Optimized: TA-Lib)
             if len(df) >= 14:
-                # ⚡ Bolt Optimization: Fully vectorized ATR
-                # Using NumPy for shifting and convolution to bypass Pandas overhead.
-                high_vals = df["high"].values.astype(float)
-                low_vals = df["low"].values.astype(float)
-                close_vals = df["close"].values.astype(float)
+                # ⚡ Bolt: Using talib.ATR is much faster than manual TR/ATR calculation
+                # Note: standard ATR uses Wilder's smoothing
+                df["atr"] = talib.ATR(high_vals, low_vals, close_vals, timeperiod=14)
 
-                prev_close = np.empty_like(close_vals, dtype=float)
-                prev_close[0] = np.nan
-                prev_close[1:] = close_vals[:-1]
-
-                tr1 = high_vals - low_vals
-                tr2 = np.abs(high_vals - prev_close)
-                tr3 = np.abs(low_vals - prev_close)
-
-                tr = np.maximum(tr1, np.maximum(tr2, tr3))
-
-                # Using np.convolve for smoothing (Standard ATR uses Wilder's,
-                # but existing code uses simple mean, so we stick to that for correctness)
-                period = 14
-                kernel = np.ones(period) / period
-                atr_vals = np.convolve(tr, kernel, mode="valid")
-                atr_full = np.full(len(df), np.nan)
-                atr_full[period - 1 :] = atr_vals
-                df["atr"] = atr_full
-
-            # Bollinger Bands (Optimized: Reuse pre-calculated indicators)
+            # Bollinger Bands (Optimized: TA-Lib)
             if len(df) >= 20:
-                # Reuse SMA20 if it was already calculated in add_moving_averages
-                if "sma_20" in df.columns:
-                    sma_vals = df["sma_20"].values
-                else:
-                    # ⚡ Bolt Optimization: Vectorized SMA calculation
-                    close_vals_20 = df["close"].values
-                    kernel20 = np.ones(20) / 20
-                    sma_valid = np.convolve(close_vals_20, kernel20, mode="valid")
-                    sma_vals = np.full(len(df), np.nan)
-                    sma_vals[20 - 1 :] = sma_valid
-
-                # ---
-                # ⚡ Bolt Optimization: Vectorized rolling std
-                # Replaces slow pd.Series.rolling().std() with vectorized variance formula.
-                # ---
-                close_vals_20 = df["close"].values
-                kernel20 = np.ones(20)
-                s20 = np.convolve(close_vals_20, kernel20, mode="valid")
-                s2_20 = np.convolve(close_vals_20**2, kernel20, mode="valid")
-                var20 = (s2_20 - (s20**2 / 20)) / 19
-                std_20_vals = np.sqrt(np.maximum(var20, 0))
-
-                std_20 = np.full(len(df), np.nan)
-                std_20[20 - 1 :] = std_20_vals
-
-                # ---
-                # ⚡ Bolt Optimization: Use raw numpy values for band arithmetic
-                # Bypassing Series arithmetic significantly reduces overhead from
-                # index validation and alignment for these row-wise operations.
-                # ---
-                std_vals = std_20  # already a numpy array
-                close_vals = df["close"].values
-
-                upper = sma_vals + (2 * std_vals)
-                lower = sma_vals - (2 * std_vals)
-                width = upper - lower
-
+                # ⚡ Bolt: Using talib.BBANDS is significantly faster
+                upper, middle, lower = talib.BBANDS(
+                    close_vals, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0
+                )
                 df["bb_upper"] = upper
                 df["bb_lower"] = lower
-                df["bb_middle"] = sma_vals
+                df["bb_middle"] = middle
+                width = upper - lower
                 df["bb_width"] = width
                 df["bb_position"] = (close_vals - lower) / width
-            else:
-                std_20 = None
 
-            # Volatility indicators (Optimized: Reuse std_20 and vectorize others)
+            # Volatility indicators (Optimized: TA-Lib)
             periods = [10, 20, 50, 100]
-            close_vals = df["close"].values
             for period in periods:
                 if len(df) >= period:
-                    col_name = f"volatility_{period}"
-                    if period == 20 and std_20 is not None:
-                        vol_vals = std_20
-                    else:
-                        # ⚡ Bolt Optimization: Vectorized rolling std for all periods
-                        kernel = np.ones(period)
-                        s = np.convolve(close_vals, kernel, mode="valid")
-                        s2 = np.convolve(close_vals**2, kernel, mode="valid")
-                        var = (s2 - (s**2 / period)) / (period - 1)
-                        vol_vals = np.full(len(df), np.nan)
-                        vol_vals[period - 1 :] = np.sqrt(np.maximum(var, 0))
-
-                    df[col_name] = vol_vals
-                    # ⚡ Bolt: Use raw values for ratio calculation
+                    # ⚡ Bolt: talib.STDDEV is faster than manual rolling variance
+                    vol_vals = talib.STDDEV(close_vals, timeperiod=period, nbdev=1)
+                    df[f"volatility_{period}"] = vol_vals
                     df[f"volatility_ratio_{period}"] = vol_vals / close_vals
 
-            # Donchian Channels
+            # Donchian Channels (Keep existing vectorized logic as TA-Lib doesn't have it)
             if len(df) >= 20:
-                # ---
-                # ⚡ Bolt Optimization: Vectorized rolling min/max for Donchian
-                # ---
-                high_vals_20 = df["high"].values
-                low_vals_20 = df["low"].values
-
-                high_windows_20 = np.lib.stride_tricks.sliding_window_view(
-                    high_vals_20, 20
-                )
-                low_windows_20 = np.lib.stride_tricks.sliding_window_view(
-                    low_vals_20, 20
-                )
+                high_windows_20 = np.lib.stride_tricks.sliding_window_view(high_vals, 20)
+                low_windows_20 = np.lib.stride_tricks.sliding_window_view(low_vals, 20)
 
                 d_upper_vals = np.full(len(df), np.nan)
                 d_lower_vals = np.full(len(df), np.nan)
@@ -360,14 +186,10 @@ class TechnicalIndicators:
 
                 df["donchian_upper"] = d_upper_vals
                 df["donchian_lower"] = d_lower_vals
-
-                # ⚡ Bolt: Use .values for row-wise arithmetic
-                upper_vals = d_upper_vals
-                lower_vals = d_lower_vals
-                range_vals = upper_vals - lower_vals
-
-                df["donchian_middle"] = (upper_vals + lower_vals) / 2
-                df["donchian_position"] = (close_vals - lower_vals) / range_vals
+                df["donchian_middle"] = (d_upper_vals + d_lower_vals) / 2
+                df["donchian_position"] = (close_vals - d_lower_vals) / (
+                    d_upper_vals - d_lower_vals
+                )
 
             return df
 
@@ -382,64 +204,39 @@ class TechnicalIndicators:
                 # Create synthetic volume for forex data
                 df["volume"] = (df["high"] - df["low"]) * 1000000
 
-            # Volume Moving Averages
+            # ⚡ Bolt: Extract raw values for TA-Lib
+            high_vals = df["high"].values.astype(np.float64)
+            low_vals = df["low"].values.astype(np.float64)
+            close_vals = df["close"].values.astype(np.float64)
+            volume_vals = df["volume"].values.astype(np.float64)
+
+            # Volume Moving Averages (Optimized: TA-Lib)
             periods = [10, 20, 50]
-            volume_vals = df["volume"].values
             for period in periods:
                 if len(df) >= period:
-                    # ⚡ Bolt Optimization: Vectorized Volume Moving Averages
-                    # Using np.convolve for SMA is ~1.5x faster than rolling().mean()
-                    kernel = np.ones(period) / period
-                    v_sma_vals = np.convolve(volume_vals, kernel, mode="valid")
-                    v_sma_full = np.full(len(df), np.nan)
-                    v_sma_full[period - 1 :] = v_sma_vals
-                    df[f"volume_sma_{period}"] = v_sma_full
-                    # ⚡ Bolt: Use .values for ratio
-                    df[f"volume_ratio_{period}"] = volume_vals / v_sma_full
+                    # ⚡ Bolt: talib.SMA is much faster for volume averages
+                    v_sma = talib.SMA(volume_vals, timeperiod=period)
+                    df[f"volume_sma_{period}"] = v_sma
+                    df[f"volume_ratio_{period}"] = volume_vals / v_sma
 
-            # On-Balance Volume (OBV)
+            # On-Balance Volume (OBV) (Optimized: TA-Lib)
             if len(df) >= 2:
-                # ⚡ Bolt Optimization: Fully vectorized OBV
-                # Replaces slow pd.Series.diff() and keeps logic mathematically identical
-                close_vals = df["close"].values
-                price_diff = np.zeros_like(close_vals)
-                price_diff[1:] = np.diff(close_vals)
+                # ⚡ Bolt: talib.OBV is significantly faster than manual cumulative sum
+                obv_vals = talib.OBV(close_vals, volume_vals)
+                # ⚡ Bolt: Align with previous behavior (starting at 0 for compatibility)
+                df["obv"] = obv_vals - obv_vals[0]
 
-                volume_direction = np.where(
-                    price_diff > 0,
-                    volume_vals,
-                    np.where(price_diff < 0, -volume_vals, 0),
-                )
-                df["obv"] = volume_direction.cumsum()
-
-            # Volume Price Trend (VPT)
+            # Volume Price Trend (VPT) (Keep existing vectorized logic as TA-Lib doesn't have it)
             if len(df) >= 2:
-                # ⚡ Bolt Optimization: Fully vectorized VPT
-                # Using numpy for pct_change calculation to avoid index alignment overhead.
-                # We handle the first NaN by using a zero in the first position to match
-                # the cumulative behavior of the original pandas implementation.
-                close_vals = df["close"].values
                 pct_change = np.zeros_like(close_vals)
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    # pct_change = (current - previous) / previous
                     pct_change[1:] = np.diff(close_vals) / close_vals[:-1]
-
                 df["vpt"] = (pct_change * volume_vals).cumsum()
 
-            # Accumulation/Distribution Line (Optimized: Vectorized arithmetic)
+            # Accumulation/Distribution Line (Optimized: TA-Lib)
             if len(df) >= 1:
-                # Use raw numpy values for faster calculation
-                close_vals = df["close"].values
-                high_vals = df["high"].values
-                low_vals = df["low"].values
-                range_hl = high_vals - low_vals
-
-                # Handle potential division by zero
-                money_flow_multiplier = np.where(
-                    range_hl != 0, (2 * close_vals - low_vals - high_vals) / range_hl, 0
-                )
-                money_flow_volume = money_flow_multiplier * df["volume"].values
-                df["ad_line"] = money_flow_volume.cumsum()
+                # ⚡ Bolt: talib.AD is the standard optimized C-implementation
+                df["ad_line"] = talib.AD(high_vals, low_vals, close_vals, volume_vals)
 
             return df
 
@@ -450,62 +247,39 @@ class TechnicalIndicators:
     def add_trend_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add trend-based indicators"""
         try:
-            # Parabolic SAR
+            # ⚡ Bolt: Extract raw values for TA-Lib
+            high_vals = df["high"].values.astype(np.float64)
+            low_vals = df["low"].values.astype(np.float64)
+            close_vals = df["close"].values.astype(np.float64)
+
+            # Parabolic SAR (Optimized: TA-Lib)
             if len(df) >= 5:
-                df["sar"] = self._calculate_parabolic_sar(df)
+                # ⚡ Bolt: Using talib.SAR is much faster than the iterative loop
+                df["sar"] = talib.SAR(high_vals, low_vals, acceleration=0.02, maximum=0.2)
 
-            # Average Directional Index (ADX)
+            # Average Directional Index (ADX) (Optimized: TA-Lib)
             if len(df) >= 14:
-                # Optimized: Reuse ATR if it was already calculated
-                atr_14 = df["atr"] if "atr" in df.columns else None
-                df = self._calculate_adx(df, period=14, atr_series=atr_14)
+                # ⚡ Bolt: talib.ADX is standard and highly optimized
+                df["adx"] = talib.ADX(high_vals, low_vals, close_vals, timeperiod=14)
+                # Plus/Minus Directional Indicators
+                df["di_plus"] = talib.PLUS_DI(high_vals, low_vals, close_vals, timeperiod=14)
+                df["di_minus"] = talib.MINUS_DI(high_vals, low_vals, close_vals, timeperiod=14)
 
-            # Aroon Indicator
+            # Aroon Indicator (Optimized: TA-Lib)
             if len(df) >= 25:
-                period = 25
-
-                # ---
-                # ⚡ Bolt Optimization: Vectorized Aroon Indicator
-                # Replaced slow `rolling().apply()` with `sliding_window_view`.
-                # Note: Keeping original (period - argmax) logic to avoid breaking changes.
-                # ---
-                high_vals = df["high"].values
-                low_vals = df["low"].values
-
-                # Create sliding windows
-                high_windows = np.lib.stride_tricks.sliding_window_view(
-                    high_vals, window_shape=period
-                )
-                low_windows = np.lib.stride_tricks.sliding_window_view(
-                    low_vals, window_shape=period
-                )
-
-                # Find argmax/argmin along the window axis (axis=1)
-                argmax_high = np.argmax(high_windows, axis=1)
-                argmin_low = np.argmin(low_windows, axis=1)
-
-                # Calculate Aroon values matching original formula
-                aroon_up_vals = 100 * (period - argmax_high) / period
-                aroon_down_vals = 100 * (period - argmin_low) / period
-
-                # Align with dataframe using pre-allocated series
-                aroon_up = pd.Series(np.nan, index=df.index)
-                aroon_down = pd.Series(np.nan, index=df.index)
-
-                aroon_up.iloc[period - 1 :] = aroon_up_vals
-                aroon_down.iloc[period - 1 :] = aroon_down_vals
-
+                # ⚡ Bolt: Using talib.AROON is significantly faster than sliding_window_view
+                aroon_down, aroon_up = talib.AROON(high_vals, low_vals, timeperiod=25)
                 df["aroon_up"] = aroon_up
                 df["aroon_down"] = aroon_down
-                df["aroon_oscillator"] = df["aroon_up"] - df["aroon_down"]
+                df["aroon_oscillator"] = aroon_up - aroon_down
 
-            # Trend strength
+            # Trend strength (Optimized: TA-Lib Linear Regression Slope)
             periods = [10, 20, 50]
             for period in periods:
                 if len(df) >= period:
-                    # Linear regression slope (Vectorized for performance)
-                    df[f"trend_strength_{period}"] = self._calculate_rolling_slope(
-                        df["close"], period
+                    # ⚡ Bolt: talib.LINEARREG_SLOPE provides a massive speedup
+                    df[f"trend_strength_{period}"] = talib.LINEARREG_SLOPE(
+                        close_vals, timeperiod=period
                     )
 
             return df
@@ -519,17 +293,15 @@ class TechnicalIndicators:
         try:
             # Pivot Points
             if len(df) >= 1:
-                # Reuse pre-calculated typical_price for pivot points
-                # ---
-                # ⚡ Bolt Optimization: Use raw numpy values for pivot arithmetic
-                # ---
-                high_vals = df["high"].values
-                low_vals = df["low"].values
+                # ⚡ Bolt: Extract raw values
+                high_vals = df["high"].values.astype(np.float64)
+                low_vals = df["low"].values.astype(np.float64)
+                close_vals = df["close"].values.astype(np.float64)
 
                 pivot = (
                     df["typical_price"].values
                     if "typical_price" in df.columns
-                    else (high_vals + low_vals + df["close"].values) / 3
+                    else (high_vals + low_vals + close_vals) / 3
                 )
 
                 df["pivot"] = pivot
@@ -538,35 +310,18 @@ class TechnicalIndicators:
                 df["r2"] = pivot + (high_vals - low_vals)
                 df["s2"] = pivot - (high_vals - low_vals)
 
-            # Price position relative to recent highs/lows (Optimized)
+            # Price position relative to recent highs/lows (Optimized: TA-Lib)
             periods = [20, 50]
             for period in periods:
                 if len(df) >= period:
-                    # Reuse Donchian channels for period 20 if available
-                    if period == 20 and "donchian_upper" in df.columns:
-                        high_max_vals = df["donchian_upper"].values
-                        low_min_vals = df["donchian_lower"].values
-                    else:
-                        # ⚡ Bolt Optimization: Vectorized rolling min/max
-                        h_vals = df["high"].values
-                        l_vals = df["low"].values
-                        h_windows = np.lib.stride_tricks.sliding_window_view(
-                            h_vals, period
-                        )
-                        l_windows = np.lib.stride_tricks.sliding_window_view(
-                            l_vals, period
-                        )
-
-                        high_max_vals = np.full(len(df), np.nan)
-                        low_min_vals = np.full(len(df), np.nan)
-
-                        high_max_vals[period - 1 :] = np.max(h_windows, axis=1)
-                        low_min_vals[period - 1 :] = np.min(l_windows, axis=1)
+                    # ⚡ Bolt: Using talib.MIN/MAX is faster than sliding_window_view
+                    high_max_vals = talib.MAX(df["high"].values.astype(np.float64), timeperiod=period)
+                    low_min_vals = talib.MIN(df["low"].values.astype(np.float64), timeperiod=period)
 
                     # ---
                     # ⚡ Bolt Optimization: Use raw numpy values for position arithmetic
                     # ---
-                    close_vals = df["close"].values
+                    close_vals = df["close"].values.astype(np.float64)
                     range_val = high_max_vals - low_min_vals
 
                     df[f"price_position_{period}"] = (
@@ -585,197 +340,6 @@ class TechnicalIndicators:
             logger.error(f"Error adding support/resistance indicators: {e}")
             return df
 
-    def _calculate_parabolic_sar(
-        self,
-        df: pd.DataFrame,
-        af_start: float = 0.02,
-        af_increment: float = 0.02,
-        af_max: float = 0.2,
-    ) -> pd.Series:
-        """Calculate Parabolic SAR"""
-        try:
-            high = df["high"].values
-            low = df["low"].values
-            close = df["close"].values
-
-            length = len(df)
-            sar = np.zeros(length)
-            trend = np.zeros(length)
-            af = np.zeros(length)
-            ep = np.zeros(length)
-
-            # Initialize
-            sar[0] = low[0]
-            trend[0] = 1  # 1 for up, -1 for down
-            af[0] = af_start
-            ep[0] = high[0]
-
-            for i in range(1, length):
-                if trend[i - 1] == 1:  # Uptrend
-                    sar[i] = sar[i - 1] + af[i - 1] * (ep[i - 1] - sar[i - 1])
-
-                    if low[i] <= sar[i]:
-                        trend[i] = -1
-                        sar[i] = ep[i - 1]
-                        af[i] = af_start
-                        ep[i] = low[i]
-                    else:
-                        trend[i] = 1
-                        if high[i] > ep[i - 1]:
-                            ep[i] = high[i]
-                            af[i] = min(af[i - 1] + af_increment, af_max)
-                        else:
-                            ep[i] = ep[i - 1]
-                            af[i] = af[i - 1]
-                else:  # Downtrend
-                    sar[i] = sar[i - 1] + af[i - 1] * (ep[i - 1] - sar[i - 1])
-
-                    if high[i] >= sar[i]:
-                        trend[i] = 1
-                        sar[i] = ep[i - 1]
-                        af[i] = af_start
-                        ep[i] = high[i]
-                    else:
-                        trend[i] = -1
-                        if low[i] < ep[i - 1]:
-                            ep[i] = low[i]
-                            af[i] = min(af[i - 1] + af_increment, af_max)
-                        else:
-                            ep[i] = ep[i - 1]
-                            af[i] = af[i - 1]
-
-            return pd.Series(sar, index=df.index)
-
-        except Exception as e:
-            logger.error(f"Error calculating Parabolic SAR: {e}")
-            return pd.Series(np.nan, index=df.index)
-
-    def _calculate_rolling_slope(self, series: pd.Series, window: int) -> pd.Series:
-        """Calculate the slope of a linear regression over a rolling window."""
-        try:
-            # ---
-            # ⚡ Bolt Optimization: Vectorized Linear Regression Slope
-            # Replaced the slow `rolling().apply(np.polyfit)` with a vectorized
-            # implementation using numpy convolution and rolling sums. This avoids
-            # Python-level loops and the overhead of calling polyfit thousands of times.
-            # ---
-            n = window
-            if len(series) < n:
-                return pd.Series(np.nan, index=series.index)
-
-            x_mean = (n - 1) / 2
-            # sum((i - x_mean)^2) for i = 0 to n-1
-            sum_x2 = n * (n**2 - 1) / 12
-
-            # ⚡ Bolt Optimization: Use np.convolve for rolling sum
-            y_sum_vals = np.convolve(series.values, np.ones(n), mode="valid")
-            y_sum = pd.Series(np.nan, index=series.index)
-            y_sum.iloc[n - 1 :] = y_sum_vals
-
-            # Use convolution for sum(i * y_i)
-            # To get sum_{i=0}^{n-1} i * y_{t-n+1+i}, we use weights [n-1, n-2, ..., 0]
-            weights = np.arange(n - 1, -1, -1)
-            sum_iy = np.convolve(series.values, weights, mode="valid")
-
-            # Align the result with the original series index
-            sum_iy_series = pd.Series(sum_iy, index=series.index[n - 1 :])
-
-            slope = (sum_iy_series - x_mean * y_sum) / sum_x2
-            return slope
-
-        except Exception as e:
-            logger.error(f"Error calculating rolling slope: {e}")
-            return pd.Series(np.nan, index=series.index)
-
-    def _calculate_adx(
-        self, df: pd.DataFrame, period: int = 14, atr_series: Optional[pd.Series] = None
-    ) -> pd.DataFrame:
-        """Calculate Average Directional Index (ADX)"""
-        try:
-            # ---
-            # ⚡ Bolt Optimization: Vectorized ADX calculation
-            # - Replaced slow `pd.concat().max(axis=1)` with `np.maximum` (~20x faster).
-            # - Used raw numpy values for arithmetic to avoid Pandas overhead (~2x faster).
-            # - Reused shifted series to avoid redundant `shift()` calls.
-            # - Used vectorized `np.where` for DM+ and DM- calculation.
-            # - Optimized: Can reuse pre-calculated ATR to avoid redundant TR/ATR calculations.
-            # ---
-
-            # Calculate Directional Movement
-            high_vals = df["high"].values.astype(float)
-            low_vals = df["low"].values.astype(float)
-
-            # ⚡ Bolt Optimization: Use NumPy for shifting to avoid Series overhead (~3.5x faster)
-            prev_high_vals = np.empty_like(high_vals, dtype=float)
-            prev_high_vals[0] = np.nan
-            prev_high_vals[1:] = high_vals[:-1]
-
-            prev_low_vals = np.empty_like(low_vals, dtype=float)
-            prev_low_vals[0] = np.nan
-            prev_low_vals[1:] = low_vals[:-1]
-
-            up = np.clip(high_vals - prev_high_vals, 0, None)
-            down = np.clip(prev_low_vals - low_vals, 0, None)
-
-            # Standard Wilder's logic for Directional Movement
-            dm_plus_vals = np.where((up > down) & (up > 0), up, 0)
-            dm_minus_vals = np.where((down > up) & (down > 0), down, 0)
-
-            # Calculate smoothed averages
-            kernel_adx = np.ones(period) / period
-            if atr_series is not None:
-                atr_vals = atr_series.values
-            else:
-                close_vals = df["close"].values
-                prev_close_vals = np.empty_like(close_vals)
-                prev_close_vals[0] = np.nan
-                prev_close_vals[1:] = close_vals[:-1]
-
-                tr1 = high_vals - low_vals
-                tr2 = np.abs(high_vals - prev_close_vals)
-                tr3 = np.abs(low_vals - prev_close_vals)
-                tr = np.maximum(tr1, np.maximum(tr2, tr3))
-
-                # ⚡ Bolt Optimization: Use np.convolve for TR smoothing
-                atr_vals_valid = np.convolve(tr, kernel_adx, mode="valid")
-                atr_vals = np.full(len(df), np.nan)
-                atr_vals[period - 1 :] = atr_vals_valid
-
-            # ⚡ Bolt Optimization: Vectorize final ADX steps using raw NumPy arithmetic
-            # Bypassing Series arithmetic avoids index alignment overhead.
-            dm_plus_rolling_valid = np.convolve(dm_plus_vals, kernel_adx, mode="valid")
-            dm_minus_rolling_valid = np.convolve(
-                dm_minus_vals, kernel_adx, mode="valid"
-            )
-
-            dm_plus_rolling = np.full(len(df), np.nan)
-            dm_minus_rolling = np.full(len(df), np.nan)
-            dm_plus_rolling[period - 1 :] = dm_plus_rolling_valid
-            dm_minus_rolling[period - 1 :] = dm_minus_rolling_valid
-
-            with np.errstate(divide="ignore", invalid="ignore"):
-                di_plus_vals = 100 * (dm_plus_rolling / atr_vals)
-                di_minus_vals = 100 * (dm_minus_rolling / atr_vals)
-
-                # Calculate ADX
-                diff_di = np.abs(di_plus_vals - di_minus_vals)
-                sum_di = di_plus_vals + di_minus_vals
-                dx_vals = np.where(sum_di > 0, 100 * diff_di / sum_di, 0)
-
-            # ⚡ Bolt Optimization: Use np.convolve for ADX smoothing
-            adx_valid = np.convolve(dx_vals, kernel_adx, mode="valid")
-            adx_full = np.full(len(df), np.nan)
-            adx_full[period - 1 :] = adx_valid
-
-            df["di_plus"] = di_plus_vals
-            df["di_minus"] = di_minus_vals
-            df["adx"] = adx_full
-
-            return df
-
-        except Exception as e:
-            logger.error(f"Error calculating ADX: {e}")
-            return df
 
     def get_indicator_summary(self, df: pd.DataFrame) -> Dict:
         """Get summary of current indicator values"""

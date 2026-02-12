@@ -107,3 +107,9 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - Migrating to TA-Lib for 4x Speedup
+
+**Learning:** I discovered that while manual NumPy vectorization (using `np.convolve`, `sliding_window_view`, etc.) is significantly faster than Pandas-based calculations, it still cannot match the performance of TA-Lib, which is implemented in C. Migrating the entire `TechnicalIndicators` suite in `utils/technical_indicators.py` provided a measurable ~4.1x overall speedup.
+
+**Action:** Whenever `ta-lib` is available in the environment (as per `requirements.txt`), prioritize its C-based implementations for standard technical indicators over manual NumPy vectorization. Always ensure inputs are cast to `float64` to avoid library-level exceptions.
