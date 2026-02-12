@@ -175,7 +175,9 @@ class TechnicalIndicators:
 
             # Donchian Channels (Keep existing vectorized logic as TA-Lib doesn't have it)
             if len(df) >= 20:
-                high_windows_20 = np.lib.stride_tricks.sliding_window_view(high_vals, 20)
+                high_windows_20 = np.lib.stride_tricks.sliding_window_view(
+                    high_vals, 20
+                )
                 low_windows_20 = np.lib.stride_tricks.sliding_window_view(low_vals, 20)
 
                 d_upper_vals = np.full(len(df), np.nan)
@@ -255,15 +257,21 @@ class TechnicalIndicators:
             # Parabolic SAR (Optimized: TA-Lib)
             if len(df) >= 5:
                 # ⚡ Bolt: Using talib.SAR is much faster than the iterative loop
-                df["sar"] = talib.SAR(high_vals, low_vals, acceleration=0.02, maximum=0.2)
+                df["sar"] = talib.SAR(
+                    high_vals, low_vals, acceleration=0.02, maximum=0.2
+                )
 
             # Average Directional Index (ADX) (Optimized: TA-Lib)
             if len(df) >= 14:
                 # ⚡ Bolt: talib.ADX is standard and highly optimized
                 df["adx"] = talib.ADX(high_vals, low_vals, close_vals, timeperiod=14)
                 # Plus/Minus Directional Indicators
-                df["di_plus"] = talib.PLUS_DI(high_vals, low_vals, close_vals, timeperiod=14)
-                df["di_minus"] = talib.MINUS_DI(high_vals, low_vals, close_vals, timeperiod=14)
+                df["di_plus"] = talib.PLUS_DI(
+                    high_vals, low_vals, close_vals, timeperiod=14
+                )
+                df["di_minus"] = talib.MINUS_DI(
+                    high_vals, low_vals, close_vals, timeperiod=14
+                )
 
             # Aroon Indicator (Optimized: TA-Lib)
             if len(df) >= 25:
@@ -315,8 +323,12 @@ class TechnicalIndicators:
             for period in periods:
                 if len(df) >= period:
                     # ⚡ Bolt: Using talib.MIN/MAX is faster than sliding_window_view
-                    high_max_vals = talib.MAX(df["high"].values.astype(np.float64), timeperiod=period)
-                    low_min_vals = talib.MIN(df["low"].values.astype(np.float64), timeperiod=period)
+                    high_max_vals = talib.MAX(
+                        df["high"].values.astype(np.float64), timeperiod=period
+                    )
+                    low_min_vals = talib.MIN(
+                        df["low"].values.astype(np.float64), timeperiod=period
+                    )
 
                     # ---
                     # ⚡ Bolt Optimization: Use raw numpy values for position arithmetic
@@ -339,7 +351,6 @@ class TechnicalIndicators:
         except Exception as e:
             logger.error(f"Error adding support/resistance indicators: {e}")
             return df
-
 
     def get_indicator_summary(self, df: pd.DataFrame) -> Dict:
         """Get summary of current indicator values"""
