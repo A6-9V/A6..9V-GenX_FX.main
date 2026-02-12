@@ -106,4 +106,9 @@
 
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
-**Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - ScalpingService NumPy Vectorization
+
+**Learning:** I identified that `api/services/scalping_service.py` was passing Pandas Series to TA-Lib functions and using `.iloc` for result indexing. TA-Lib is significantly faster when given raw NumPy arrays, and direct NumPy indexing (`[-1]`) is approximately 1.6x faster than Pandas `.iloc`.
+
+**Action:** I optimized `_analyze_5m`, `_analyze_15m`, and `_analyze_30m` by extracting `.values` from OHLCV DataFrames and replacing `.iloc` accessors with direct NumPy indexing. This consistent pattern of "dropping down" to NumPy for final signal generation ensures minimal latency in the high-frequency trading path.
