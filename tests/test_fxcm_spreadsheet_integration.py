@@ -99,16 +99,18 @@ class FXCMSpreadsheetIntegrationTest:
 
             # Import the appropriate provider
             if use_mock:
-                from core.data_sources.fxcm_forexconnect_provider import \
-                    MockFXCMForexConnectProvider
+                from core.data_sources.fxcm_forexconnect_provider import (
+                    MockFXCMForexConnectProvider,
+                )
 
                 self.data_provider = MockFXCMForexConnectProvider(
                     self.config["fxcm_forexconnect"]
                 )
                 logger.info("Using Mock FXCM ForexConnect Provider")
             else:
-                from core.data_sources.fxcm_forexconnect_provider import \
-                    FXCMForexConnectProvider
+                from core.data_sources.fxcm_forexconnect_provider import (
+                    FXCMForexConnectProvider,
+                )
 
                 self.data_provider = FXCMForexConnectProvider(
                     self.config["fxcm_forexconnect"]

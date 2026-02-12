@@ -19,8 +19,7 @@ import pandas as pd
 from core.ai_models.ensemble_predictor import EnsemblePredictor
 from core.data_sources.fxcm_provider import FXCMDataProvider
 from core.risk_management.position_sizer import PositionSizer
-from core.signal_validators.multi_timeframe_validator import \
-    MultiTimeframeValidator
+from core.signal_validators.multi_timeframe_validator import MultiTimeframeValidator
 from core.spreadsheet_manager import SpreadsheetManager
 from utils.technical_indicators import TechnicalIndicators
 

@@ -15,18 +15,21 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+
 # ML imports
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (accuracy_score, classification_report,
-                             precision_recall_fscore_support)
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    precision_recall_fscore_support,
+)
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.svm import SVC
 
-from core.feature_engineering.market_microstructure import \
-    MarketMicrostructureFeatures
+from core.feature_engineering.market_microstructure import MarketMicrostructureFeatures
 from core.feature_engineering.sentiment_features import SentimentFeatures
 from core.feature_engineering.technical_features import TechnicalFeatureEngine
 from utils.model_validation import ModelValidator

@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from .cnn_model import CNNModel
+
 # These modules will be created in subsequent steps
 from .feature_engineer import FeatureEngineer
 from .hyperparameter_optimizer import HyperparameterOptimizer

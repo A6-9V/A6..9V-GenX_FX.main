@@ -36,8 +36,7 @@ except ImportError:
 
 import api.redis
 from api.database import get_db
-from api.routers import (ea_http, market_data, performance, predictions,
-                         system, trading)
+from api.routers import ea_http, market_data, performance, predictions, system, trading
 
 predictor = None
 scalping_service = None
