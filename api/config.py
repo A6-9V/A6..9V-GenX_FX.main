@@ -152,6 +152,14 @@ class Settings(BaseSettings):
     WEBSOCKET_RECONNECT_INTERVAL: int = 5
     MAX_WEBSOCKET_RETRIES: int = 10
 
+    # EA Authentication
+    EA_API_KEY: Optional[str] = Field(
+        None, description="API key for Expert Advisor authentication"
+    )
+    EA_API_KEYS: Optional[str] = Field(
+        None, description="Comma-separated list of valid EA API keys"
+    )
+
     @field_validator("EXNESS_LOGIN")
     @classmethod
     def validate_login(cls, v: str) -> str:
