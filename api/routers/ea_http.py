@@ -150,15 +150,15 @@ async def ea_info(request: MessageRequest, api_key: str = Depends(validate_ea_ap
         ea_data = request.data
         ea_id = f"{ea_data.get('account')}_{ea_data.get('magic_number')}"
         
-        # Create API key hash for audit purposes (SHA-256)
-        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
+        # Create API key hash for audit purposes (SHA-256, full hash for security)
+        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         
         # Store EA connection info
         ea_connections[ea_id] = {
             "info": ea_data,
             "last_seen": datetime.utcnow(),
             "status": "connected",
-            "api_key_hash": api_key_hash  # Store hash for audit trail
+            "api_key_hash": api_key_hash  # Store full hash for secure audit trail
         }
         
         logger.info(f"EA registered: {ea_data.get('name')} v{ea_data.get('version')} "
