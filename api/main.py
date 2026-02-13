@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator
 
 # Check if ai_models module exists and can be imported
 try:
@@ -160,7 +160,9 @@ app.include_router(market_data.router, prefix="/api/v1")
 app.include_router(predictions.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")
 app.include_router(trading.router, prefix="/api/v1")
-app.include_router(ea_http.router)  # EA HTTP endpoints (no /api/v1 prefix for compatibility)
+app.include_router(
+    ea_http.router
+)  # EA HTTP endpoints (no /api/v1 prefix for compatibility)
 
 
 # --- Optimization: Define static API responses as constants ---
@@ -757,7 +759,8 @@ async def add_payment_method(
         masked_card_number = f"**** **** **** {payment_method.cardNumber[-4:]}"
         cursor = db.cursor()
         cursor.execute(
-            "INSERT INTO payment_methods (cardholder_name, masked_card_number) VALUES (?, ?)",
+            "INSERT INTO payment_methods "
+            "(cardholder_name, masked_card_number) VALUES (?, ?)",
             (
                 payment_method.cardholderName,
                 masked_card_number,
