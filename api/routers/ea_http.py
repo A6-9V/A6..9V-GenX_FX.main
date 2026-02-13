@@ -3,12 +3,15 @@ HTTP REST API endpoints for MetaTrader Expert Advisor (EA) communication.
 Provides endpoints for EA registration, signal retrieval, heartbeat, and trade reporting.
 """
 
+import hashlib
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from ..utils.ea_auth import validate_ea_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -103,9 +106,12 @@ async def ping():
 
 
 @router.get("/get_signal")
-async def get_signal():
+async def get_signal(api_key: str = Depends(validate_ea_api_key)):
     """
     Retrieve the next pending trading signal for the EA.
+    
+    Security:
+        Requires valid API key in X-API-Key header
     
     Returns:
         dict: Trading signal if available, or 204 No Content status
@@ -116,7 +122,7 @@ async def get_signal():
     
     # Get the oldest signal (FIFO)
     signal = pending_signals.pop(0)
-    logger.info(f"Signal retrieved: {signal}")
+    logger.info(f"Signal retrieved by authenticated EA: {signal}")
     
     return {
         "type": "SIGNAL",
@@ -126,12 +132,16 @@ async def get_signal():
 
 
 @router.post("/ea_info")
-async def ea_info(request: MessageRequest):
+async def ea_info(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Register or update EA information with the server.
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         request: Message containing EA information
+        api_key: Validated API key from header
         
     Returns:
         dict: Confirmation message
@@ -140,11 +150,15 @@ async def ea_info(request: MessageRequest):
         ea_data = request.data
         ea_id = f"{ea_data.get('account')}_{ea_data.get('magic_number')}"
         
+        # Create API key hash for audit purposes (SHA-256, full hash for security)
+        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        
         # Store EA connection info
         ea_connections[ea_id] = {
             "info": ea_data,
             "last_seen": datetime.utcnow(),
-            "status": "connected"
+            "status": "connected",
+            "api_key_hash": api_key_hash  # Store full hash for secure audit trail
         }
         
         logger.info(f"EA registered: {ea_data.get('name')} v{ea_data.get('version')} "
@@ -161,12 +175,16 @@ async def ea_info(request: MessageRequest):
 
 
 @router.post("/heartbeat")
-async def heartbeat(request: MessageRequest):
+async def heartbeat(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive heartbeat from EA to maintain connection status.
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         request: Message containing heartbeat data
+        api_key: Validated API key from header
         
     Returns:
         dict: Acknowledgment message
@@ -184,7 +202,7 @@ async def heartbeat(request: MessageRequest):
         ea_connections[ea_id]["last_seen"] = datetime.utcnow()
         ea_connections[ea_id]["heartbeat"] = heartbeat_data
         
-        logger.debug(f"Heartbeat received from EA {ea_id}: {heartbeat_data}")
+        logger.debug(f"Heartbeat received from authenticated EA {ea_id}: {heartbeat_data}")
         
         return {
             "status": "success",
@@ -198,12 +216,16 @@ async def heartbeat(request: MessageRequest):
 
 
 @router.post("/account_status")
-async def account_status(request: MessageRequest):
+async def account_status(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive and store account status information from EA.
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         request: Message containing account status data
+        api_key: Validated API key from header
         
     Returns:
         dict: Acknowledgment message
@@ -221,7 +243,7 @@ async def account_status(request: MessageRequest):
         ea_connections[ea_id]["account_status"] = status_data
         ea_connections[ea_id]["last_status_update"] = datetime.utcnow()
         
-        logger.info(f"Account status received from EA {ea_id} - Balance: {status_data.get('balance')}, "
+        logger.info(f"Account status received from authenticated EA {ea_id} - Balance: {status_data.get('balance')}, "
                    f"Equity: {status_data.get('equity')}, "
                    f"Positions: {status_data.get('open_positions')}")
         
@@ -237,12 +259,16 @@ async def account_status(request: MessageRequest):
 
 
 @router.post("/trade_result")
-async def trade_result(request: MessageRequest):
+async def trade_result(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive trade execution results from EA.
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         request: Message containing trade execution result
+        api_key: Validated API key from header
         
     Returns:
         dict: Acknowledgment message
@@ -277,9 +303,12 @@ async def trade_result(request: MessageRequest):
 
 # Admin/monitoring endpoints
 @router.get("/ea_status")
-async def get_ea_status():
+async def get_ea_status(api_key: str = Depends(validate_ea_api_key)):
     """
     Get status of all connected EAs (admin endpoint).
+    
+    Security:
+        Requires valid API key in X-API-Key header
     
     Returns:
         dict: Status information for all connected EAs
@@ -294,12 +323,16 @@ async def get_ea_status():
 
 
 @router.post("/send_signal")
-async def send_signal(signal: Dict[str, Any]):
+async def send_signal(signal: Dict[str, Any], api_key: str = Depends(validate_ea_api_key)):
     """
     Add a new trading signal to the queue (admin/internal endpoint).
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         signal: Trading signal data
+        api_key: Validated API key from header
         
     Returns:
         dict: Confirmation message
@@ -308,7 +341,7 @@ async def send_signal(signal: Dict[str, Any]):
         # Add signal to pending queue
         pending_signals.append(signal)
         
-        logger.info(f"Signal added to queue: {signal.get('action')} "
+        logger.info(f"Signal added to queue by authenticated client: {signal.get('action')} "
                    f"{signal.get('instrument')} {signal.get('volume')}")
         
         return {
@@ -323,12 +356,16 @@ async def send_signal(signal: Dict[str, Any]):
 
 
 @router.get("/trade_results")
-async def get_trade_results(limit: int = 100):
+async def get_trade_results(limit: int = 100, api_key: str = Depends(validate_ea_api_key)):
     """
     Get recent trade execution results (admin endpoint).
     
+    Security:
+        Requires valid API key in X-API-Key header
+    
     Args:
         limit: Maximum number of results to return
+        api_key: Validated API key from header
         
     Returns:
         dict: Recent trade results
