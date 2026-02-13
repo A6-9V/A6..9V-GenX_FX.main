@@ -40,7 +40,8 @@ class TestScalpingService(unittest.TestCase):
         # Mock Stoch return values
         k_vals = np.full(100, 10.0)
         d_vals = np.full(100, 15.0)
-        # Last index: k=18, d=15 (Cross up? No wait. Prev: k=10, d=15. Curr: k=18, d=15 -> Cross Up)
+        # Last index: k=18, d=15 (Cross up? No wait.
+        # Prev: k=10, d=15. Curr: k=18, d=15 -> Cross Up)
         k_vals[-1] = 18.0
         d_vals[-1] = 15.0
         k_vals[-2] = 10.0
@@ -81,9 +82,7 @@ class TestScalpingService(unittest.TestCase):
         self.df["low"] = (
             100.0  # Ensure low is NOT <= lower band (95.0) to avoid entering Long block
         )
-        self.df["close"] = (
-            104.0  # Doesn't matter for touch check which uses high/low depending on implementation
-        )
+        self.df["close"] = 104.0  # Doesn't matter for touch check which uses high/low
 
         result = self.service.analyze_strategy(self.df, "15m")
 
