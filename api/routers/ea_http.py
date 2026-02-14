@@ -6,7 +6,7 @@ Provides endpoints for EA registration, signal retrieval, heartbeat, and trade r
 import hashlib
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -44,7 +44,6 @@ def get_or_create_ea_id(data: Dict[str, Any]) -> str:
 # Pydantic models for request/response validation
 class EAInfo(BaseModel):
     """Expert Advisor information"""
-
     name: str
     version: str
     account: int
@@ -56,7 +55,6 @@ class EAInfo(BaseModel):
 
 class HeartbeatData(BaseModel):
     """EA heartbeat data"""
-
     status: str
     positions: int
     pending_orders: int
@@ -65,7 +63,6 @@ class HeartbeatData(BaseModel):
 
 class AccountStatusData(BaseModel):
     """Account status information"""
-
     balance: float
     equity: float
     margin: float
@@ -77,7 +74,6 @@ class AccountStatusData(BaseModel):
 
 class TradeResultData(BaseModel):
     """Trade execution result"""
-
     signal_id: str
     ticket: int
     success: bool
@@ -89,7 +85,6 @@ class TradeResultData(BaseModel):
 
 class MessageRequest(BaseModel):
     """Generic message wrapper"""
-
     type: str
     data: Dict[str, Any]
     timestamp: str
@@ -106,7 +101,7 @@ async def ping():
     return {
         "status": "ok",
         "message": "GenX AI Server is running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
@@ -132,7 +127,7 @@ async def get_signal(api_key: str = Depends(validate_ea_api_key)):
     return {
         "type": "SIGNAL",
         "data": signal,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
@@ -163,18 +158,16 @@ async def ea_info(request: MessageRequest, api_key: str = Depends(validate_ea_ap
             "info": ea_data,
             "last_seen": datetime.utcnow(),
             "status": "connected",
-            "api_key_hash": api_key_hash,  # Store full hash for secure audit trail
+            "api_key_hash": api_key_hash  # Store full hash for secure audit trail
         }
 
-        logger.info(
-            f"EA registered: {ea_data.get('name')} v{ea_data.get('version')} "
-            f"(Account: {ea_data.get('account')}, Magic: {ea_data.get('magic_number')})"
-        )
+        logger.info(f"EA registered: {ea_data.get('name')} v{ea_data.get('version')} "
+                   f"(Account: {ea_data.get('account')}, Magic: {ea_data.get('magic_number')})")
 
         return {
             "status": "success",
             "message": "EA information received",
-            "ea_id": ea_id,
+            "ea_id": ea_id
         }
     except Exception as e:
         logger.error(f"Error processing EA info: {e}")
@@ -182,9 +175,7 @@ async def ea_info(request: MessageRequest, api_key: str = Depends(validate_ea_ap
 
 
 @router.post("/heartbeat")
-async def heartbeat(
-    request: MessageRequest, api_key: str = Depends(validate_ea_api_key)
-):
+async def heartbeat(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive heartbeat from EA to maintain connection status.
 
@@ -211,15 +202,13 @@ async def heartbeat(
         ea_connections[ea_id]["last_seen"] = datetime.utcnow()
         ea_connections[ea_id]["heartbeat"] = heartbeat_data
 
-        logger.debug(
-            f"Heartbeat received from authenticated EA {ea_id}: {heartbeat_data}"
-        )
+        logger.debug(f"Heartbeat received from authenticated EA {ea_id}: {heartbeat_data}")
 
         return {
             "status": "success",
             "message": "Heartbeat acknowledged",
             "ea_id": ea_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
         logger.error(f"Error processing heartbeat: {e}")
@@ -227,9 +216,7 @@ async def heartbeat(
 
 
 @router.post("/account_status")
-async def account_status(
-    request: MessageRequest, api_key: str = Depends(validate_ea_api_key)
-):
+async def account_status(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive and store account status information from EA.
 
@@ -256,17 +243,15 @@ async def account_status(
         ea_connections[ea_id]["account_status"] = status_data
         ea_connections[ea_id]["last_status_update"] = datetime.utcnow()
 
-        logger.info(
-            f"Account status received from authenticated EA {ea_id} - Balance: {status_data.get('balance')}, "
-            f"Equity: {status_data.get('equity')}, "
-            f"Positions: {status_data.get('open_positions')}"
-        )
+        logger.info(f"Account status received from authenticated EA {ea_id} - Balance: {status_data.get('balance')}, "
+                   f"Equity: {status_data.get('equity')}, "
+                   f"Positions: {status_data.get('open_positions')}")
 
         return {
             "status": "success",
             "message": "Account status received",
             "ea_id": ea_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
         logger.error(f"Error processing account status: {e}")
@@ -274,9 +259,7 @@ async def account_status(
 
 
 @router.post("/trade_result")
-async def trade_result(
-    request: MessageRequest, api_key: str = Depends(validate_ea_api_key)
-):
+async def trade_result(request: MessageRequest, api_key: str = Depends(validate_ea_api_key)):
     """
     Receive trade execution results from EA.
 
@@ -294,27 +277,24 @@ async def trade_result(
         result_data = request.data
 
         # Store trade result
-        trade_results.append(
-            {**result_data, "received_at": datetime.utcnow().isoformat()}
-        )
+        trade_results.append({
+            **result_data,
+            "received_at": datetime.utcnow().isoformat()
+        })
 
         if result_data.get("success"):
-            logger.info(
-                f"Trade executed successfully - Signal: {result_data.get('signal_id')}, "
-                f"Ticket: {result_data.get('ticket')}, "
-                f"Price: {result_data.get('execution_price')}"
-            )
+            logger.info(f"Trade executed successfully - Signal: {result_data.get('signal_id')}, "
+                       f"Ticket: {result_data.get('ticket')}, "
+                       f"Price: {result_data.get('execution_price')}")
         else:
-            logger.warning(
-                f"Trade execution failed - Signal: {result_data.get('signal_id')}, "
-                f"Error: {result_data.get('error_message')} "
-                f"(Code: {result_data.get('error_code')})"
-            )
+            logger.warning(f"Trade execution failed - Signal: {result_data.get('signal_id')}, "
+                         f"Error: {result_data.get('error_message')} "
+                         f"(Code: {result_data.get('error_code')})")
 
         return {
             "status": "success",
             "message": "Trade result received",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
         logger.error(f"Error processing trade result: {e}")
@@ -338,14 +318,12 @@ async def get_ea_status(api_key: str = Depends(validate_ea_api_key)):
         "eas": ea_connections,
         "pending_signals": len(pending_signals),
         "trade_results_count": len(trade_results),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
 @router.post("/send_signal")
-async def send_signal(
-    signal: Dict[str, Any], api_key: str = Depends(validate_ea_api_key)
-):
+async def send_signal(signal: Dict[str, Any], api_key: str = Depends(validate_ea_api_key)):
     """
     Add a new trading signal to the queue (admin/internal endpoint).
 
@@ -363,16 +341,14 @@ async def send_signal(
         # Add signal to pending queue
         pending_signals.append(signal)
 
-        logger.info(
-            f"Signal added to queue by authenticated client: {signal.get('action')} "
-            f"{signal.get('instrument')} {signal.get('volume')}"
-        )
+        logger.info(f"Signal added to queue by authenticated client: {signal.get('action')} "
+                   f"{signal.get('instrument')} {signal.get('volume')}")
 
         return {
             "status": "success",
             "message": "Signal added to queue",
             "signal_id": signal.get("signal_id"),
-            "queue_position": len(pending_signals),
+            "queue_position": len(pending_signals)
         }
     except Exception as e:
         logger.error(f"Error adding signal: {e}")
@@ -380,9 +356,7 @@ async def send_signal(
 
 
 @router.get("/trade_results")
-async def get_trade_results(
-    limit: int = 100, api_key: str = Depends(validate_ea_api_key)
-):
+async def get_trade_results(limit: int = 100, api_key: str = Depends(validate_ea_api_key)):
     """
     Get recent trade execution results (admin endpoint).
 
@@ -399,5 +373,5 @@ async def get_trade_results(
     return {
         "results": trade_results[-limit:],
         "total_count": len(trade_results),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat()
     }
