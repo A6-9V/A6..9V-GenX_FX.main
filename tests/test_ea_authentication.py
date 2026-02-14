@@ -3,6 +3,7 @@ Tests for EA API Key Authentication
 
 Tests the new authentication system for EA HTTP endpoints.
 """
+
 import json
 import os
 from datetime import datetime
@@ -96,9 +97,9 @@ class TestAuthenticationRequired:
                 "broker": "Test",
                 "symbol": "EURUSD",
                 "timeframe": "H1",
-                "magic_number": 12345
+                "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/ea_info", json=ea_data)
         assert response.status_code == 401
@@ -113,9 +114,9 @@ class TestAuthenticationRequired:
                 "pending_orders": 0,
                 "last_signal": "",
                 "account": 12345,
-                "magic_number": 12345
+                "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat_data)
         assert response.status_code == 401
@@ -133,9 +134,9 @@ class TestAuthenticationRequired:
                 "profit": 0.00,
                 "open_positions": 0,
                 "account": 12345,
-                "magic_number": 12345
+                "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/account_status", json=status_data)
         assert response.status_code == 401
@@ -151,9 +152,9 @@ class TestAuthenticationRequired:
                 "error_code": 0,
                 "error_message": "",
                 "execution_price": 1.1000,
-                "slippage": 0.0001
+                "slippage": 0.0001,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/trade_result", json=result_data)
         assert response.status_code == 401
@@ -169,7 +170,7 @@ class TestAuthenticationRequired:
             "signal_id": "TEST_SIG",
             "instrument": "EURUSD",
             "action": "BUY",
-            "volume": 0.1
+            "volume": 0.1,
         }
         response = client.post("/send_signal", json=signal_data)
         assert response.status_code == 401
@@ -202,9 +203,9 @@ class TestAuthenticationSuccess:
                 "broker": "Test Broker",
                 "symbol": "EURUSD",
                 "timeframe": "M15",
-                "magic_number": 99999
+                "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/ea_info", json=ea_data, headers=auth_headers)
         assert response.status_code == 200
@@ -222,9 +223,9 @@ class TestAuthenticationSuccess:
                 "pending_orders": 0,
                 "last_signal": "BUY_EURUSD",
                 "account": 99999,
-                "magic_number": 99999
+                "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat_data, headers=auth_headers)
         assert response.status_code == 200
@@ -244,11 +245,13 @@ class TestAuthenticationSuccess:
                 "profit": 250.00,
                 "open_positions": 1,
                 "account": 99999,
-                "magic_number": 99999
+                "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
-        response = client.post("/account_status", json=status_data, headers=auth_headers)
+        response = client.post(
+            "/account_status", json=status_data, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -264,9 +267,9 @@ class TestAuthenticationSuccess:
                 "error_code": 0,
                 "error_message": "",
                 "execution_price": 1.0950,
-                "slippage": 0.0002
+                "slippage": 0.0002,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/trade_result", json=result_data, headers=auth_headers)
         assert response.status_code == 200
@@ -289,7 +292,7 @@ class TestAuthenticationSuccess:
             "action": "SELL",
             "volume": 0.2,
             "stop_loss": 1.2700,
-            "take_profit": 1.2600
+            "take_profit": 1.2600,
         }
         response = client.post("/send_signal", json=signal_data, headers=auth_headers)
         assert response.status_code == 200
@@ -314,8 +317,9 @@ class TestMultipleAPIKeys:
         # Set multiple keys
         os.environ["EA_API_KEYS"] = "key1,key2,key3"
 
-        from api.utils.ea_auth import get_valid_ea_api_keys
         from unittest.mock import patch
+
+        from api.utils.ea_auth import get_valid_ea_api_keys
 
         # Patch settings for this specific test
         with patch("api.utils.ea_auth.settings") as mock_settings:
@@ -332,8 +336,9 @@ class TestMultipleAPIKeys:
         """Test that keys with whitespace are handled correctly"""
         os.environ["EA_API_KEYS"] = "key1, key2 , key3"
 
-        from api.utils.ea_auth import get_valid_ea_api_keys
         from unittest.mock import patch
+
+        from api.utils.ea_auth import get_valid_ea_api_keys
 
         # Patch settings for this specific test
         with patch("api.utils.ea_auth.settings") as mock_settings:
@@ -385,9 +390,9 @@ class TestEndToEndWorkflow:
                 "broker": "Workflow Broker",
                 "symbol": "USDJPY",
                 "timeframe": "H4",
-                "magic_number": 77777
+                "magic_number": 77777,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/ea_info", json=ea_info, headers=auth_headers)
         assert response.status_code == 200
@@ -402,9 +407,9 @@ class TestEndToEndWorkflow:
                 "pending_orders": 0,
                 "last_signal": "",
                 "account": 77777,
-                "magic_number": 77777
+                "magic_number": 77777,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat, headers=auth_headers)
         assert response.status_code == 200
@@ -416,7 +421,7 @@ class TestEndToEndWorkflow:
             "action": "BUY",
             "volume": 0.1,
             "stop_loss": 145.00,
-            "take_profit": 146.00
+            "take_profit": 146.00,
         }
         response = client.post("/send_signal", json=signal, headers=auth_headers)
         assert response.status_code == 200
@@ -438,9 +443,9 @@ class TestEndToEndWorkflow:
                 "error_code": 0,
                 "error_message": "",
                 "execution_price": 145.50,
-                "slippage": 0.0005
+                "slippage": 0.0005,
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         response = client.post("/trade_result", json=trade_result, headers=auth_headers)
         assert response.status_code == 200

@@ -65,7 +65,9 @@ async def validate_ea_api_key(api_key: Optional[str] = Security(api_key_header))
 
     # Check if any valid keys are configured
     if not valid_keys:
-        logger.error("No EA API keys configured. Set EA_API_KEY or EA_API_KEYS in environment.")
+        logger.error(
+            "No EA API keys configured. Set EA_API_KEY or EA_API_KEYS in environment."
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server configuration error. Contact administrator.",
@@ -85,7 +87,7 @@ async def validate_ea_api_key(api_key: Optional[str] = Security(api_key_header))
 
 
 async def validate_ea_api_key_optional(
-    api_key: Optional[str] = Security(api_key_header)
+    api_key: Optional[str] = Security(api_key_header),
 ) -> Optional[str]:
     """
     Optionally validates the EA API key (doesn't raise if missing).

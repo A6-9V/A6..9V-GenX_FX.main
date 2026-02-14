@@ -1,6 +1,7 @@
 """
 Tests for EA HTTP communication endpoints
 """
+
 import json
 from datetime import datetime
 
@@ -11,6 +12,7 @@ try:
     from fastapi.testclient import TestClient
 
     from api.main import app
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
@@ -63,9 +65,9 @@ def test_ea_info_registration():
             "broker": "Test Broker",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/ea_info", json=ea_data)
@@ -86,9 +88,9 @@ def test_heartbeat():
             "pending_orders": 0,
             "last_signal": "2024-01-01T12:00:00",
             "account": 12345,
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/heartbeat", json=heartbeat_data)
@@ -111,9 +113,9 @@ def test_account_status():
             "profit": 150.00,
             "open_positions": 2,
             "account": 12345,
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/account_status", json=status_data)
@@ -134,9 +136,9 @@ def test_trade_result_success():
             "error_code": 0,
             "error_message": "",
             "execution_price": 1.1000,
-            "slippage": 0.0002
+            "slippage": 0.0002,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/trade_result", json=result_data)
@@ -156,9 +158,9 @@ def test_trade_result_failure():
             "error_code": 134,
             "error_message": "Not enough money",
             "execution_price": 0.0,
-            "slippage": 0.0
+            "slippage": 0.0,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/trade_result", json=result_data)
@@ -175,7 +177,7 @@ def test_send_signal():
         "action": "BUY",
         "volume": 0.1,
         "stop_loss": 1.0950,
-        "take_profit": 1.1050
+        "take_profit": 1.1050,
     }
 
     response = client.post("/send_signal", json=signal_data)
@@ -223,9 +225,7 @@ def test_trade_results_limit():
 
 def test_invalid_message_format():
     """Test handling of invalid message format"""
-    invalid_data = {
-        "invalid_field": "value"
-    }
+    invalid_data = {"invalid_field": "value"}
 
     response = client.post("/ea_info", json=invalid_data)
     assert response.status_code == 422  # Validation error
@@ -235,7 +235,12 @@ def test_signal_queue_order():
     """Test that signals are retrieved in FIFO order"""
     # Send multiple signals
     signals = [
-        {"signal_id": f"SIG_QUEUE_{i}", "instrument": "EURUSD", "action": "BUY", "volume": 0.1}
+        {
+            "signal_id": f"SIG_QUEUE_{i}",
+            "instrument": "EURUSD",
+            "action": "BUY",
+            "volume": 0.1,
+        }
         for i in range(3)
     ]
 
@@ -270,9 +275,9 @@ def test_ea_identification_consistency():
             "broker": "Test",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "magic_number": 67890
+            "magic_number": 67890,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/ea_info", json=ea_info)
@@ -287,9 +292,9 @@ def test_ea_identification_consistency():
             "pending_orders": 0,
             "last_signal": "",
             "account": 12345,
-            "magic_number": 67890
+            "magic_number": 67890,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
     response = client.post("/heartbeat", json=heartbeat)
