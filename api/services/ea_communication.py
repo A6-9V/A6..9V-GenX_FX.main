@@ -14,7 +14,7 @@ from datetime import datetime
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional
 
-from ..config.settings import get_settings
+from ..config import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -338,6 +338,7 @@ class EAConnection:
     async def send_signal(self, signal: TradingSignal) -> bool:
         """
         Sends a trading signal to the connected EA.
+        Uses asyncio.to_thread to avoid blocking the event loop during transmission.
 
         Args:
             signal (TradingSignal): The signal to send.
@@ -349,7 +350,9 @@ class EAConnection:
             message_data = signal.to_dict()
             encoded_message = MessageProtocol.encode_message("SIGNAL", message_data)
 
-            self.socket.sendall(encoded_message)
+            # Offload blocking sendall to a separate thread to keep the event loop responsive
+            await asyncio.to_thread(self.socket.sendall, encoded_message)
+
             logger.info(
                 f"Signal sent to EA {self.address}: {signal.action} {signal.instrument}"
             )
@@ -363,6 +366,7 @@ class EAConnection:
     async def send_command(self, command: str, params: Dict[str, Any] = None) -> bool:
         """
         Sends a command to the connected EA.
+        Uses asyncio.to_thread to avoid blocking the event loop during transmission.
 
         Args:
             command (str): The command to send (e.g., "GET_STATUS").
@@ -375,7 +379,9 @@ class EAConnection:
             command_data = {"command": command, "parameters": params or {}}
             encoded_message = MessageProtocol.encode_message("COMMAND", command_data)
 
-            self.socket.sendall(encoded_message)
+            # Offload blocking sendall to a separate thread to keep the event loop responsive
+            await asyncio.to_thread(self.socket.sendall, encoded_message)
+
             logger.info(f"Command sent to EA {self.address}: {command}")
             return True
 
@@ -454,6 +460,7 @@ class EAServer:
             Exception: If the server fails to start.
         """
         try:
+            # Use the current running loop for non-blocking socket operations
             self.loop = asyncio.get_running_loop()
 
             # Create and configure the server socket
@@ -461,10 +468,14 @@ class EAServer:
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(10)
-            self.server_socket.settimeout(1.0)  # Use a timeout for non-blocking accept
+            self.server_socket.setblocking(False)  # Set to non-blocking for asyncio
 
             self.is_running = True
             logger.info(f"EA Server started on {self.host}:{self.port}")
+
+            # Start a background task to flush the signal queue periodically
+            # if connections exist but signals were somehow left in the queue.
+            asyncio.create_task(self._queue_flusher())
 
             # Start the main loop for accepting connections
             await self._accept_connections()
@@ -473,6 +484,17 @@ class EAServer:
             logger.error(f"Error starting EA server: {e}")
             await self.stop()
             raise
+
+    async def _queue_flusher(self):
+        """
+        Periodically checks the signal queue and attempts to broadcast if
+        connections are available. This ensures that signals don't hang if
+        the queue was not flushed during the connection event.
+        """
+        while self.is_running:
+            if not self.signal_queue.empty() and self.connections:
+                await self._process_signal_queue()
+            await asyncio.sleep(1.0)
 
     async def stop(self):
         """Stops the EA server and closes all active connections."""
@@ -494,21 +516,24 @@ class EAServer:
     async def _accept_connections(self):
         """
         The main server loop for accepting new EA connections.
+        Uses non-blocking sock_accept to avoid blocking the event loop.
         """
         while self.is_running:
             try:
-                client_socket, address = self.server_socket.accept()
-                client_socket.settimeout(30.0)  # Set a timeout for client operations
+                # Use asyncio-native non-blocking accept to keep the event loop free
+                client_socket, address = await self.loop.sock_accept(self.server_socket)
+
+                # Ensure the client socket is in blocking mode for the EAConnection thread
+                client_socket.setblocking(True)
+                client_socket.settimeout(30.0)
 
                 # Create a new connection handler for the client
                 connection = EAConnection(client_socket, address, self)
                 self.connections.append(connection)
 
-            except socket.timeout:
-                # This is expected due to the non-blocking socket.
-                # Use this opportunity to process the signal queue.
+                # Process any queued signals now that we have a new connection
                 await self._process_signal_queue()
-                await asyncio.sleep(0.1)  # Prevent busy-waiting
+
             except Exception as e:
                 if self.is_running:
                     logger.error(f"Error accepting connection: {e}")
