@@ -21,6 +21,7 @@ try:
 except ImportError:
     FASTAPI_AVAILABLE = False
 
+
 @pytest.fixture(scope="module")
 def client():
     """Create test client with authentication configured"""
