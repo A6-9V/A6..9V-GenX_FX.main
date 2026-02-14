@@ -19,13 +19,20 @@ except ImportError:
     FASTAPI_AVAILABLE = False
 
 # Test API key
-TEST_API_KEY = "test_api_key_http"
+TEST_API_KEY = "test_api_key_12345"
 
-if FASTAPI_AVAILABLE:
+
+@pytest.fixture(scope="module")
+def client():
+    """Create test client with mocked settings"""
+    if not FASTAPI_AVAILABLE:
+        return None
+
+    # Set test API key in environment
     os.environ["EA_API_KEY"] = TEST_API_KEY
-    client = TestClient(app)
-else:
-    client = None
+
+    return TestClient(app)
+
 
 pytestmark = pytest.mark.skipif(not FASTAPI_AVAILABLE, reason="FastAPI not available")
 
@@ -37,13 +44,13 @@ def auth_headers():
 
 
 @pytest.fixture(autouse=True)
-def reset_ea_state(auth_headers):
+def reset_ea_state(client, auth_headers):
     """Reset EA state before each test"""
     client.post("/reset", headers=auth_headers)
     yield
 
 
-def test_ping_endpoint():
+def test_ping_endpoint(client):
     """Test EA ping/health check endpoint"""
     response = client.get("/ping")
     assert response.status_code == 200
@@ -53,7 +60,7 @@ def test_ping_endpoint():
     assert "message" in data
 
 
-def test_get_signal_no_signals(auth_headers):
+def test_get_signal_no_signals(client, auth_headers):
     """Test get_signal when no signals are pending"""
     response = client.get("/get_signal", headers=auth_headers)
     assert response.status_code == 200
@@ -61,7 +68,7 @@ def test_get_signal_no_signals(auth_headers):
     assert data["type"] == "NO_SIGNAL"
 
 
-def test_ea_info_registration(auth_headers):
+def test_ea_info_registration(client, auth_headers):
     """Test EA registration endpoint"""
     ea_data = {
         "type": "EA_INFO",
@@ -85,7 +92,7 @@ def test_ea_info_registration(auth_headers):
     assert data["ea_id"] == "12345_12345"
 
 
-def test_heartbeat(auth_headers):
+def test_heartbeat(client, auth_headers):
     """Test EA heartbeat endpoint"""
     heartbeat_data = {
         "type": "HEARTBEAT",
@@ -107,7 +114,7 @@ def test_heartbeat(auth_headers):
     assert "ea_id" in data
 
 
-def test_account_status(auth_headers):
+def test_account_status(client, auth_headers):
     """Test account status reporting endpoint"""
     status_data = {
         "type": "ACCOUNT_STATUS",
@@ -132,7 +139,7 @@ def test_account_status(auth_headers):
     assert "ea_id" in data
 
 
-def test_trade_result_success(auth_headers):
+def test_trade_result_success(client, auth_headers):
     """Test successful trade result reporting"""
     result_data = {
         "type": "TRADE_RESULT",
@@ -154,7 +161,7 @@ def test_trade_result_success(auth_headers):
     assert data["status"] == "success"
 
 
-def test_trade_result_failure(auth_headers):
+def test_trade_result_failure(client, auth_headers):
     """Test failed trade result reporting"""
     result_data = {
         "type": "TRADE_RESULT",
@@ -176,7 +183,7 @@ def test_trade_result_failure(auth_headers):
     assert data["status"] == "success"
 
 
-def test_send_signal(auth_headers):
+def test_send_signal(client, auth_headers):
     """Test sending a signal to EA queue"""
     signal_data = {
         "signal_id": "SIG_TEST_003",
@@ -201,7 +208,7 @@ def test_send_signal(auth_headers):
     assert data["data"]["signal_id"] == "SIG_TEST_003"
 
 
-def test_ea_status(auth_headers):
+def test_ea_status(client, auth_headers):
     """Test EA status monitoring endpoint"""
     response = client.get("/ea_status", headers=auth_headers)
     assert response.status_code == 200
@@ -212,7 +219,7 @@ def test_ea_status(auth_headers):
     assert "eas" in data
 
 
-def test_trade_results_history(auth_headers):
+def test_trade_results_history(client, auth_headers):
     """Test trade results history endpoint"""
     response = client.get("/trade_results", headers=auth_headers)
     assert response.status_code == 200
@@ -222,7 +229,7 @@ def test_trade_results_history(auth_headers):
     assert isinstance(data["results"], list)
 
 
-def test_trade_results_limit(auth_headers):
+def test_trade_results_limit(client, auth_headers):
     """Test trade results with limit parameter"""
     response = client.get("/trade_results?limit=5", headers=auth_headers)
     assert response.status_code == 200
@@ -230,7 +237,7 @@ def test_trade_results_limit(auth_headers):
     assert len(data["results"]) <= 5
 
 
-def test_invalid_message_format(auth_headers):
+def test_invalid_message_format(client, auth_headers):
     """Test handling of invalid message format"""
     invalid_data = {"invalid_field": "value"}
 
@@ -238,7 +245,7 @@ def test_invalid_message_format(auth_headers):
     assert response.status_code == 422  # Validation error
 
 
-def test_signal_queue_order(auth_headers):
+def test_signal_queue_order(client, auth_headers):
     """Test that signals are retrieved in FIFO order"""
     # Send multiple signals
     signals = [
@@ -268,7 +275,7 @@ def test_signal_queue_order(auth_headers):
     assert retrieved == expected
 
 
-def test_ea_identification_consistency(auth_headers):
+def test_ea_identification_consistency(client, auth_headers):
     """Test that EA identification is consistent across endpoints"""
     ea_id = "12345_67890"
 
