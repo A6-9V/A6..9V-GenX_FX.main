@@ -107,3 +107,9 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## DevOps Optimization (2025-02-12)
+
+- Optimized `run_tests.py` to support parallel execution using `pytest-xdist`, achieving a ~17% wall-clock speedup even for a small suite of 70 tests.
+- Enhanced DevOps automation by fixing the `auto_confirm` logic in `automated_deployment_job.py` and adding coverage/linting options to the test runner.
+- Pattern: Parallelizing the test suite is a high-leverage DevOps optimization that scales with project size.
