@@ -13,8 +13,9 @@ import pytest
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app
+
     from api.config import settings
+    from api.main import app
 
     FASTAPI_AVAILABLE = True
 except ImportError:
@@ -54,6 +55,13 @@ def auth_headers():
 def invalid_auth_headers():
     """Headers with invalid API key"""
     return {"X-API-Key": INVALID_API_KEY}
+
+
+@pytest.fixture(autouse=True)
+def reset_ea_state(client, auth_headers):
+    """Reset EA state before each test"""
+    client.post("/reset", headers=auth_headers)
+    yield
 
 
 class TestPingEndpoint:

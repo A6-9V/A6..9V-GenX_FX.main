@@ -6,7 +6,7 @@ Provides endpoints for EA registration, signal retrieval, heartbeat, and trade r
 import hashlib
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -401,3 +401,15 @@ async def get_trade_results(
         "total_count": len(trade_results),
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@router.post("/reset", include_in_schema=False)
+async def reset_state(api_key: str = Depends(validate_ea_api_key)):
+    """
+    Reset the in-memory storage (internal use for testing).
+    """
+    global ea_connections, pending_signals, trade_results
+    ea_connections.clear()
+    pending_signals.clear()
+    trade_results.clear()
+    return {"status": "success", "message": "State reset successfully"}
