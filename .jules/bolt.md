@@ -107,3 +107,7 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - TA-Lib vs NumPy for Core Indicators
+**Learning:** I discovered that while NumPy's `np.convolve` is fast, `talib.SMA` and `talib.WMA` are significantly faster (~4x to ~10x) because they are implemented in C. Additionally, `talib.LINEARREG_SLOPE` provides a ~10x speedup over custom vectorized slope implementations. However, TA-Lib requires strict `float64` input arrays and will fail with an "input array type is not double" exception if passed integer or other types.
+**Action:** Prefer TA-Lib equivalents for SMA, WMA, ROC, and Linear Regression Slope to maximize performance. Always ensure input arrays are cast to `float64` using `.astype(float)` before passing them to TA-Lib functions to prevent runtime exceptions.
