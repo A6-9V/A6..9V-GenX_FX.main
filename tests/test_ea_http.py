@@ -3,9 +3,8 @@ Tests for EA HTTP communication endpoints
 """
 
 import json
-from datetime import datetime
-
 import os
+from datetime import datetime
 
 import pytest
 
@@ -15,6 +14,7 @@ TEST_API_KEY = "test_api_key_12345"
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
+
     from api.main import app
 
     FASTAPI_AVAILABLE = True
