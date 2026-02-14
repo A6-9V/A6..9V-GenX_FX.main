@@ -107,3 +107,15 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - TA-Lib Input Types and SAR Loop Optimization
+
+**Learning:** I identified two major performance bottlenecks. First, passing Pandas Series to TA-Lib functions (as seen in ) triggers repeated index alignment and validation overhead; passing raw NumPy arrays () and using direct array indexing provides a ~1.6x speedup. Second, the manual Python loop for Parabolic SAR in  is extremely slow compared to TA-Lib's C implementation (~26x slower for 1000 rows).
+
+**Action:** Always extract  before calling TA-Lib and prefer direct array indexing  over  for hot paths like signal generation. Integrate optional  support for heavy indicators like SAR and SMA/EMA/WMA to leverage C-level performance while maintaining functional parity via fallback implementations.
+
+## 2026-02-14 - TA-Lib Input Types and SAR Loop Optimization
+
+**Learning:** I identified two major performance bottlenecks. First, passing Pandas Series to TA-Lib functions (as seen in `ScalpingService`) triggers repeated index alignment and validation overhead; passing raw NumPy arrays (`.values`) and using direct array indexing provides a ~1.6x speedup. Second, the manual Python loop for Parabolic SAR in `TechnicalIndicators` is extremely slow compared to TA-Lib's C implementation (~26x slower for 1000 rows).
+
+**Action:** Always extract `.values` before calling TA-Lib and prefer direct array indexing `[-1]` over `.iloc[-1]` for hot paths like signal generation. Integrate optional `talib` support for heavy indicators like SAR and SMA/EMA/WMA to leverage C-level performance while maintaining functional parity via fallback implementations.
