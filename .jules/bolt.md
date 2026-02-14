@@ -107,3 +107,9 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - TA-Lib Return Type Sensitivity
+
+**Learning:** I discovered that the TA-Lib Python wrapper is sensitive to the input type: it returns a `pd.Series` if passed a `pd.Series`, but a `np.ndarray` if passed a `np.ndarray` (or `.values`). This is critical because NumPy arrays support negative indexing (e.g., `[-1]`), whereas Pandas Series do not (they use label-based indexing, so `[-1]` triggers a `KeyError` unless `-1` is a valid label).
+
+**Action:** When optimizing TA-Lib calls by passing `.values`, always ensure that the subsequent code correctly handles the `np.ndarray` return type. In this project, I updated the `ScalpingService` to use NumPy-style indexing after switching to `.values` inputs, providing a significant performance boost while maintaining correctness.

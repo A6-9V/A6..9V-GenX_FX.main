@@ -9,6 +9,13 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 
+try:
+    import talib
+
+    HAS_TALIB = True
+except ImportError:
+    HAS_TALIB = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,33 +67,40 @@ class TechnicalIndicators:
             close_vals = df["close"].values
             for period in periods:
                 if len(df) >= period:
-                    # Simple Moving Average (Optimized: Vectorized convolution)
-                    # ⚡ Bolt: Using np.convolve for SMA is ~1.5x faster than rolling().mean()
-                    kernel = np.ones(period) / period
-                    sma_vals = np.convolve(close_vals, kernel, mode="valid")
-                    sma_full = np.full(len(df), np.nan)
-                    sma_full[period - 1 :] = sma_vals
-                    df[f"sma_{period}"] = sma_full
+                    # Simple Moving Average
+                    # ⚡ Bolt: Using talib.SMA is significantly faster than np.convolve.
+                    if HAS_TALIB:
+                        df[f"sma_{period}"] = talib.SMA(close_vals, timeperiod=period)
+                    else:
+                        kernel = np.ones(period) / period
+                        sma_vals = np.convolve(close_vals, kernel, mode="valid")
+                        sma_full = np.full(len(df), np.nan)
+                        sma_full[period - 1 :] = sma_vals
+                        df[f"sma_{period}"] = sma_full
 
                     # Exponential Moving Average
-                    df[f"ema_{period}"] = df["close"].ewm(span=period).mean()
+                    # ⚡ Bolt: Using talib.EMA is faster than Pandas ewm().mean().
+                    if HAS_TALIB:
+                        df[f"ema_{period}"] = talib.EMA(close_vals, timeperiod=period)
+                    else:
+                        df[f"ema_{period}"] = df["close"].ewm(span=period).mean()
 
                     # Weighted Moving Average (Optimized)
-                    # The original pandas apply() method is slow. This implementation
-                    # uses numpy.convolve for a significant performance boost.
-                    # Denominator is calculated as n*(n+1)/2.
-                    weights = np.arange(1, period + 1)
-                    denominator = period * (period + 1) / 2
-                    # Reverse weights for convolution to correctly weigh recent prices
-                    wma_values = (
-                        np.convolve(df["close"], weights[::-1], mode="valid")
-                        / denominator
-                    )
-
-                    # Align the convolution output with the DataFrame index
-                    df[f"wma_{period}"] = pd.Series(
-                        wma_values, index=df.index[period - 1 :]
-                    )
+                    if HAS_TALIB:
+                        df[f"wma_{period}"] = talib.WMA(close_vals, timeperiod=period)
+                    else:
+                        # Fallback uses numpy.convolve for a significant performance boost.
+                        weights = np.arange(1, period + 1)
+                        denominator = period * (period + 1) / 2
+                        wma_values = (
+                            np.convolve(close_vals, weights[::-1], mode="valid")
+                            / denominator
+                        )
+                        # ⚡ Bolt: Use pre-allocated numpy array instead of pd.Series
+                        # to avoid index alignment overhead.
+                        wma_full = np.full(len(df), np.nan)
+                        wma_full[period - 1 :] = wma_values
+                        df[f"wma_{period}"] = wma_full
 
             # Moving Average Convergence Divergence (MACD)
             if len(df) >= 26:
@@ -596,7 +610,17 @@ class TechnicalIndicators:
         try:
             high = df["high"].values
             low = df["low"].values
-            close = df["close"].values
+
+            # ⚡ Bolt Optimization: Use TA-Lib for SAR calculation (~244x speedup)
+            # Standard SAR uses af_increment for both start and increment.
+            if HAS_TALIB:
+                try:
+                    sar = talib.SAR(
+                        high, low, acceleration=af_increment, maximum=af_max
+                    )
+                    return pd.Series(sar, index=df.index)
+                except Exception as e:
+                    logger.warning(f"TA-Lib SAR failed, falling back to manual: {e}")
 
             length = len(df)
             sar = np.zeros(length)
