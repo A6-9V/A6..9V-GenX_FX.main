@@ -351,9 +351,16 @@ class TestSecurityHeaders:
 
 class TestEndToEndWorkflow:
     """Test complete EA workflow with authentication"""
-    
+
     def test_complete_ea_workflow(self, client, auth_headers):
         """Test a complete EA workflow with authentication"""
+        # Clear shared state to avoid interference from other tests
+        from api.routers.ea_http import ea_connections, pending_signals, trade_results
+
+        ea_connections.clear()
+        pending_signals.clear()
+        trade_results.clear()
+
         # 1. Register EA
         ea_info = {
             "type": "EA_INFO",
