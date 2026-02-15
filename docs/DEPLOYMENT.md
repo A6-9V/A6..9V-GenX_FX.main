@@ -8,6 +8,7 @@ This project includes two primary deployment methods, both orchestrated through 
 
 1.  **DigitalOcean App Platform:** A fully managed platform that simplifies building, deploying, and scaling applications.
 2.  **DigitalOcean VPS (Droplet):** A virtual private server that provides more control over the environment.
+3.  **Railway:** A modern deployment platform for full-stack apps. See our [Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md).
 
 ## Prerequisites
 
@@ -52,6 +53,13 @@ You will need to configure the following secrets in your GitHub repository setti
 *   `VPS_PORT`: The SSH port for your Droplet (usually `22`).
 
 The workflow passes the necessary API keys and other secrets to the `docker-compose.production.yml` file on the VPS.
+
+## Deployment to Railway
+
+For a quick and easy deployment, we recommend using Railway.
+
+1.  Use the referral link to sign up: [https://railway.com?referralCode=AHRe-w](https://railway.com?referralCode=AHRe-w)
+2.  Follow the detailed instructions in the [Railway Deployment Guide](RAILWAY_DEPLOYMENT_GUIDE.md).
 
 ### Manual Deployment
 
