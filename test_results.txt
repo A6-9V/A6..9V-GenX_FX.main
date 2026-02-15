@@ -1,0 +1,156 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app
+plugins: mock-3.15.1, anyio-4.12.1
+collected 37 items
+
+tests/test_ea_authentication.py .......................                  [ 62%]
+tests/test_ea_http.py ..............                                     [100%]
+
+=============================== warnings summary ===============================
+tests/test_ea_authentication.py::TestPingEndpoint::test_ping_no_auth
+tests/test_ea_http.py::test_ping_endpoint
+  /app/api/routers/ea_http.py:109: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationRequired::test_ea_info_without_auth
+  /app/tests/test_ea_authentication.py:112: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationRequired::test_heartbeat_without_auth
+  /app/tests/test_ea_authentication.py:129: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationRequired::test_account_status_without_auth
+  /app/tests/test_ea_authentication.py:149: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationRequired::test_trade_result_without_auth
+  /app/tests/test_ea_authentication.py:167: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_ea_info_with_auth
+  /app/tests/test_ea_authentication.py:218: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_ea_info_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_ea_info_registration
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/api/routers/ea_http.py:164: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "last_seen": datetime.utcnow(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_heartbeat_with_auth
+  /app/tests/test_ea_authentication.py:238: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_heartbeat_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_heartbeat
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/api/routers/ea_http.py:211: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ea_connections[ea_id]["last_seen"] = datetime.utcnow()
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_heartbeat_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_heartbeat
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/api/routers/ea_http.py:222: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_account_status_with_auth
+  /app/tests/test_ea_authentication.py:260: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_account_status_with_auth
+tests/test_ea_http.py::test_account_status
+  /app/api/routers/ea_http.py:257: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ea_connections[ea_id]["last_status_update"] = datetime.utcnow()
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_account_status_with_auth
+tests/test_ea_http.py::test_account_status
+  /app/api/routers/ea_http.py:269: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_trade_result_with_auth
+  /app/tests/test_ea_authentication.py:282: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_trade_result_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_trade_result_success
+tests/test_ea_http.py::test_trade_result_failure
+  /app/api/routers/ea_http.py:298: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    {**result_data, "received_at": datetime.utcnow().isoformat()}
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_trade_result_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_trade_result_success
+tests/test_ea_http.py::test_trade_result_failure
+  /app/api/routers/ea_http.py:317: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_ea_status_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_ea_status
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/api/routers/ea_http.py:341: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestAuthenticationSuccess::test_trade_results_with_auth
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_trade_results_history
+tests/test_ea_http.py::test_trade_results_limit
+  /app/api/routers/ea_http.py:402: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+  /app/tests/test_ea_authentication.py:388: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+  /app/tests/test_ea_authentication.py:405: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+tests/test_ea_http.py::test_send_signal
+tests/test_ea_http.py::test_signal_queue_order
+tests/test_ea_http.py::test_signal_queue_order
+tests/test_ea_http.py::test_signal_queue_order
+  /app/api/routers/ea_http.py:135: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_authentication.py::TestEndToEndWorkflow::test_complete_ea_workflow
+  /app/tests/test_ea_authentication.py:441: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_ea_info_registration
+  /app/tests/test_ea_http.py:59: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_heartbeat
+  /app/tests/test_ea_http.py:82: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_account_status
+  /app/tests/test_ea_http.py:107: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_trade_result_success
+  /app/tests/test_ea_http.py:130: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_trade_result_failure
+  /app/tests/test_ea_http.py:152: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/tests/test_ea_http.py:269: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_ea_http.py::test_ea_identification_consistency
+  /app/tests/test_ea_http.py:286: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 37 passed, 57 warnings in 2.70s ========================
