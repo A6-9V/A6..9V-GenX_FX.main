@@ -285,14 +285,15 @@ class FeatureEngineer:
             return np.empty((0, sequence_length, 4))
 
         # Pre-calculate indicators for the entire series (vectorized in TA-Lib)
-        rsi = talib.RSI(df["close"], timeperiod=14)
-        macd_line, _, macd_hist = talib.MACD(df["close"])
-
-        # Fill NaNs before converting to values to ensure consistency
-        rsi = rsi.fillna(0.5).values
-        macd_line = macd_line.fillna(0).values
-        macd_hist = macd_hist.fillna(0).values
+        # ⚡ Bolt: Passing raw NumPy arrays bypasses Pandas Series overhead.
         close_vals = df["close"].values
+        rsi = talib.RSI(close_vals, timeperiod=14)
+        macd_line, _, macd_hist = talib.MACD(close_vals)
+
+        # ⚡ Bolt: Fill NaNs on NumPy arrays directly for better performance
+        rsi = np.nan_to_num(rsi, nan=0.5)
+        macd_line = np.nan_to_num(macd_line, nan=0.0)
+        macd_hist = np.nan_to_num(macd_hist, nan=0.0)
 
         if only_last:
             # Optimization for single prediction: skip all other images

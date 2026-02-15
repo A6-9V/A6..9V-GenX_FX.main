@@ -92,6 +92,18 @@
 **Learning:** I identified that passing Pandas Series to TA-Lib functions (especially candlestick patterns) triggers repeated index alignment and validation overhead. Extracting NumPy values once and passing them to 60+ pattern calls provides a massive speedup. Additionally, I found that `talib.SMA` is ~10x faster than `np.convolve` for moving averages, and NumPy-based slicing for labels is ~4x faster than `pd.Series.shift`.
 **Action:** Always extract `.values` before multiple TA-Lib calls in a loop. Prefer `talib.SMA` over manual convolution when the library is available. Use NumPy slicing for future-looking label generation to avoid Pandas overhead in training data preparation.
 
+## 2026-02-14 - TA-Lib Series vs NumPy Array Overhead
+
+**Learning:** I identified a significant performance bottleneck in `ScalpingService` and `FeatureEngineer` where TA-Lib functions were being passed Pandas Series instead of raw NumPy arrays. Passing a Series triggers index alignment and validation overhead within the TA-Lib wrapper. Additionally, using `.iloc[-1]` on a Series is significantly slower than integer indexing `[-1]` on a NumPy array.
+
+**Action:** Always pass `.values` to TA-Lib functions and use raw NumPy array indexing `[]` instead of `.iloc[]` for retrieving results. This optimization yielded a ~3.7x to 5.0x speedup across multiple indicators (EMA, STOCH, RSI, MACD) in the scalping and chart image generation paths. I also found that `np.nan_to_num` is faster than `fillna().values` for cleaning TA-Lib results.
+
+## 2026-02-14 - Stale Settings in Tests
+
+**Learning:** I discovered that importing a global `settings` instance (from Pydantic `BaseSettings`) at the module level can lead to stale configuration in a test environment. If tests modify environment variables (e.g., `os.environ["EA_API_KEY"] = "test"`) after the module has already been imported, the global `settings` instance will not reflect these changes.
+
+**Action:** Use a factory function like `get_settings()` to retrieve configuration within functions or dependencies. This ensures that a fresh `Settings` instance is created (or correctly re-evaluated) and honors the latest environment variables, which is critical for dynamic test environments and CI pipelines.
+
 ## 2026-02-08 - Redis Caching for Static Constants
 **Learning:** I discovered that several static API endpoints (like `/` and `/mt5-info`) were using Redis to cache hardcoded dictionary constants. This is an anti-pattern because the overhead of a Redis network round-trip and JSON serialization/deserialization is significantly higher than simply returning the in-memory constant.
 **Action:** I removed the redundant Redis caching logic for static data and refactored the endpoints to return constants directly. In the future, I will only use Redis for dynamic data that is expensive to compute or retrieve from a primary database.
