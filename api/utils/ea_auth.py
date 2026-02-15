@@ -88,7 +88,7 @@ async def validate_ea_api_key(api_key: Optional[str] = Security(api_key_header))
 
 
 async def validate_ea_api_key_optional(
-    api_key: Optional[str] = Security(api_key_header)
+    api_key: Optional[str] = Security(api_key_header),
 ) -> Optional[str]:
     """
     Optionally validates the EA API key (doesn't raise if missing).

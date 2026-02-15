@@ -26,17 +26,15 @@ pytestmark = pytest.mark.skipif(not FASTAPI_AVAILABLE, reason="FastAPI not avail
 TEST_API_KEY = "test_api_key_12345"
 INVALID_API_KEY = "invalid_api_key"
 
+# Set test API key in environment at module level to ensure it's picked up
+os.environ["EA_API_KEY"] = TEST_API_KEY
+
 
 @pytest.fixture(scope="module")
 def client():
-    """Create test client with mocked settings"""
+    """Create test client"""
     if not FASTAPI_AVAILABLE:
         return None
-
-    # Set test API key in environment
-    os.environ["EA_API_KEY"] = TEST_API_KEY
-
-    # Reload settings is handled by the fix in ea_auth.py using get_settings()
     return TestClient(app)
 
 
@@ -57,10 +55,14 @@ def drain_signals(client, auth_headers):
     """Drain pending signals before each test to ensure isolation"""
     if client is None:
         return
-    while True:
+    # Simple loop to clear pending signals
+    for _ in range(20):  # Limit to avoid infinite loop
         try:
             response = client.get("/get_signal", headers=auth_headers)
-            if response.status_code != 200 or response.json().get("type") == "NO_SIGNAL":
+            if response.status_code != 200:
+                break
+            data = response.json()
+            if data.get("type") == "NO_SIGNAL":
                 break
         except Exception:
             break
@@ -256,7 +258,9 @@ class TestAuthenticationSuccess:
             },
             "timestamp": datetime.utcnow().isoformat(),
         }
-        response = client.post("/account_status", json=status_data, headers=auth_headers)
+        response = client.post(
+            "/account_status", json=status_data, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -326,10 +330,10 @@ class TestMultipleAPIKeys:
 
         valid_keys = get_valid_ea_api_keys()
 
-        assert len(valid_keys) >= 3
         assert "key1" in valid_keys
         assert "key2" in valid_keys
         assert "key3" in valid_keys
+        assert len(valid_keys) >= 3
 
     def test_keys_with_whitespace(self):
         """Test that keys with whitespace are handled correctly"""
