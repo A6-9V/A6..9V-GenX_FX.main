@@ -26,6 +26,16 @@ TEST_API_KEY = "test_api_key_12345"
 INVALID_API_KEY = "invalid_api_key"
 
 
+@pytest.fixture(autouse=True)
+def clear_state():
+    """Clear global state in ea_http router between tests"""
+    from api.routers import ea_http
+    ea_http.ea_connections.clear()
+    ea_http.pending_signals.clear()
+    ea_http.trade_results.clear()
+    yield
+
+
 @pytest.fixture(scope="module")
 def client():
     """Create test client with mocked settings"""

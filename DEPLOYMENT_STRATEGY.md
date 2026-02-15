@@ -30,6 +30,11 @@ This document clarifies the deployment strategy for the GenX FX platform to prev
 - **Purpose**: Builds and deploys to Google Cloud Run
 - **Recommendation**: Use only for Google Cloud deployments
 
+### Railway (`railway.json`)
+- **Status**: RECOMMENDED - Excellent for combined Node.js/Python deployments
+- **Purpose**: Deploys the entire stack (Node.js, Python, Frontend) as a single service
+- **Recommendation**: Best for quick scaling and integrated monitoring. Use with [referral link](https://railway.com?referralCode=AHRe-w).
+
 ## Avoiding Redundant Deployments
 
 ### Issue

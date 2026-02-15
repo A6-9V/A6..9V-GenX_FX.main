@@ -6,6 +6,7 @@ This adds security to EA communication without requiring full JWT implementation
 """
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import HTTPException, Security, status
@@ -28,13 +29,17 @@ def get_valid_ea_api_keys() -> set:
     """
     valid_keys = set()
     
-    # Add single EA_API_KEY if configured
-    if settings.EA_API_KEY:
-        valid_keys.add(settings.EA_API_KEY)
+    # ⚡ Bolt Optimization: Check os.environ directly to ensure
+    # reactivity during testing, as the settings object may be
+    # instantiated before test fixtures can inject environment variables.
+    ea_api_key = os.environ.get("EA_API_KEY", settings.EA_API_KEY)
+    if ea_api_key:
+        valid_keys.add(ea_api_key)
     
     # Add multiple keys from EA_API_KEYS (comma-separated)
-    if settings.EA_API_KEYS:
-        keys = [k.strip() for k in settings.EA_API_KEYS.split(",") if k.strip()]
+    ea_api_keys = os.environ.get("EA_API_KEYS", settings.EA_API_KEYS)
+    if ea_api_keys:
+        keys = [k.strip() for k in ea_api_keys.split(",") if k.strip()]
         valid_keys.update(keys)
     
     return valid_keys

@@ -252,7 +252,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5000",
         "http://localhost:5173",
-        "http://localhost:8080",
+        "http://localhost:8000",
         "https://genx-fx.com",
         "https://a-333-time-3-2--genxav69.replit.app",
     ],
@@ -795,4 +795,4 @@ if os.path.exists("client/dist"):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

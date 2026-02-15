@@ -21,6 +21,29 @@ else:
 
 pytestmark = pytest.mark.skipif(not FASTAPI_AVAILABLE, reason="FastAPI not available")
 
+# Test API key
+TEST_API_KEY = "test_api_key_12345"
+
+@pytest.fixture(autouse=True)
+def setup_teardown():
+    """Setup test environment and clear global state"""
+    import os
+    from api.routers import ea_http
+
+    # Set test API key in environment
+    os.environ["EA_API_KEY"] = TEST_API_KEY
+
+    # Clear global state
+    ea_http.ea_connections.clear()
+    ea_http.pending_signals.clear()
+    ea_http.trade_results.clear()
+    yield
+
+@pytest.fixture
+def auth_headers():
+    """Headers with valid API key"""
+    return {"X-API-Key": TEST_API_KEY}
+
 
 def test_ping_endpoint():
     """Test EA ping/health check endpoint"""
@@ -32,15 +55,15 @@ def test_ping_endpoint():
     assert "message" in data
 
 
-def test_get_signal_no_signals():
+def test_get_signal_no_signals(auth_headers):
     """Test get_signal when no signals are pending"""
-    response = client.get("/get_signal")
+    response = client.get("/get_signal", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["type"] == "NO_SIGNAL"
 
 
-def test_ea_info_registration():
+def test_ea_info_registration(auth_headers):
     """Test EA registration endpoint"""
     ea_data = {
         "type": "EA_INFO",
@@ -56,7 +79,7 @@ def test_ea_info_registration():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/ea_info", json=ea_data)
+    response = client.post("/ea_info", json=ea_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
@@ -64,7 +87,7 @@ def test_ea_info_registration():
     assert data["ea_id"] == "12345_12345"
 
 
-def test_heartbeat():
+def test_heartbeat(auth_headers):
     """Test EA heartbeat endpoint"""
     heartbeat_data = {
         "type": "HEARTBEAT",
@@ -79,14 +102,14 @@ def test_heartbeat():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/heartbeat", json=heartbeat_data)
+    response = client.post("/heartbeat", json=heartbeat_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
     assert "ea_id" in data
 
 
-def test_account_status():
+def test_account_status(auth_headers):
     """Test account status reporting endpoint"""
     status_data = {
         "type": "ACCOUNT_STATUS",
@@ -104,14 +127,14 @@ def test_account_status():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/account_status", json=status_data)
+    response = client.post("/account_status", json=status_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
     assert "ea_id" in data
 
 
-def test_trade_result_success():
+def test_trade_result_success(auth_headers):
     """Test successful trade result reporting"""
     result_data = {
         "type": "TRADE_RESULT",
@@ -127,13 +150,13 @@ def test_trade_result_success():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/trade_result", json=result_data)
+    response = client.post("/trade_result", json=result_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
 
 
-def test_trade_result_failure():
+def test_trade_result_failure(auth_headers):
     """Test failed trade result reporting"""
     result_data = {
         "type": "TRADE_RESULT",
@@ -149,13 +172,13 @@ def test_trade_result_failure():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/trade_result", json=result_data)
+    response = client.post("/trade_result", json=result_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
 
 
-def test_send_signal():
+def test_send_signal(auth_headers):
     """Test sending a signal to EA queue"""
     signal_data = {
         "signal_id": "SIG_TEST_003",
@@ -166,23 +189,23 @@ def test_send_signal():
         "take_profit": 1.1050
     }
     
-    response = client.post("/send_signal", json=signal_data)
+    response = client.post("/send_signal", json=signal_data, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
     assert data["signal_id"] == "SIG_TEST_003"
     
     # Verify signal is now available
-    response = client.get("/get_signal")
+    response = client.get("/get_signal", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["type"] == "SIGNAL"
     assert data["data"]["signal_id"] == "SIG_TEST_003"
 
 
-def test_ea_status():
+def test_ea_status(auth_headers):
     """Test EA status monitoring endpoint"""
-    response = client.get("/ea_status")
+    response = client.get("/ea_status", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "connected_eas" in data
@@ -191,9 +214,9 @@ def test_ea_status():
     assert "eas" in data
 
 
-def test_trade_results_history():
+def test_trade_results_history(auth_headers):
     """Test trade results history endpoint"""
-    response = client.get("/trade_results")
+    response = client.get("/trade_results", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "results" in data
@@ -201,25 +224,25 @@ def test_trade_results_history():
     assert isinstance(data["results"], list)
 
 
-def test_trade_results_limit():
+def test_trade_results_limit(auth_headers):
     """Test trade results with limit parameter"""
-    response = client.get("/trade_results?limit=5")
+    response = client.get("/trade_results?limit=5", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data["results"]) <= 5
 
 
-def test_invalid_message_format():
+def test_invalid_message_format(auth_headers):
     """Test handling of invalid message format"""
     invalid_data = {
         "invalid_field": "value"
     }
     
-    response = client.post("/ea_info", json=invalid_data)
+    response = client.post("/ea_info", json=invalid_data, headers=auth_headers)
     assert response.status_code == 422  # Validation error
 
 
-def test_signal_queue_order():
+def test_signal_queue_order(auth_headers):
     """Test that signals are retrieved in FIFO order"""
     # Send multiple signals
     signals = [
@@ -228,12 +251,12 @@ def test_signal_queue_order():
     ]
     
     for signal in signals:
-        client.post("/send_signal", json=signal)
+        client.post("/send_signal", json=signal, headers=auth_headers)
     
     # Retrieve signals and verify order
     retrieved = []
     for _ in range(3):
-        response = client.get("/get_signal")
+        response = client.get("/get_signal", headers=auth_headers)
         if response.status_code == 200:
             data = response.json()
             if data.get("type") == "SIGNAL":
@@ -244,7 +267,7 @@ def test_signal_queue_order():
     assert retrieved == expected
 
 
-def test_ea_identification_consistency():
+def test_ea_identification_consistency(auth_headers):
     """Test that EA identification is consistent across endpoints"""
     ea_id = "12345_67890"
     
@@ -263,7 +286,7 @@ def test_ea_identification_consistency():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/ea_info", json=ea_info)
+    response = client.post("/ea_info", json=ea_info, headers=auth_headers)
     assert response.json()["ea_id"] == ea_id
     
     # Send heartbeat
@@ -280,10 +303,10 @@ def test_ea_identification_consistency():
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    response = client.post("/heartbeat", json=heartbeat)
+    response = client.post("/heartbeat", json=heartbeat, headers=auth_headers)
     assert response.json()["ea_id"] == ea_id
     
     # Check EA status
-    response = client.get("/ea_status")
+    response = client.get("/ea_status", headers=auth_headers)
     data = response.json()
     assert ea_id in data["eas"]

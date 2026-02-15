@@ -40,7 +40,7 @@ def test_local_api() -> bool:
     """
     print("🔍 Testing local API...")
     try:
-        response = requests.get("http://localhost:8080/health", timeout=5)
+        response = requests.get("http://localhost:8000/health", timeout=5)
         if response.status_code == 200:
             print("✅ Local API connection successful")
             return True
@@ -109,7 +109,7 @@ def test_signal_generation() -> bool:
     # Try to send to local API
     try:
         response = requests.post(
-            "http://localhost:8080/api/v1/predictions",
+            "http://localhost:8000/api/v1/predictions",
             json={"signals": [test_signal]},
             timeout=5,
         )
