@@ -4,10 +4,9 @@ for all of the parsers defined in parsers.py
 """
 from io import StringIO
 
-import pytest
-
-from pandas import DataFrame
 import pandas._testing as tm
+import pytest
+from pandas import DataFrame
 
 _msg_validate_usecols_arg = (
     "'usecols' must either be list-like "

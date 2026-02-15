@@ -13,7 +13,9 @@ import pytest
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
+
     from api.main import app
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
@@ -29,12 +31,12 @@ def manage_environment():
     """Manage environment variables for the module and clean up after"""
     old_key = os.environ.get("EA_API_KEY")
     old_keys = os.environ.get("EA_API_KEYS")
-    
+
     # Set test API key for most tests in this module
     os.environ["EA_API_KEY"] = TEST_API_KEY
-    
+
     yield
-    
+
     # Restore environment
     if old_key is not None:
         os.environ["EA_API_KEY"] = old_key
