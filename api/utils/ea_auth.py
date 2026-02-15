@@ -54,18 +54,24 @@ async def validate_ea_api_key(api_key: Optional[str] = Security(api_key_header))
     Raises:
         HTTPException: If the API key is missing or invalid
     """
-    valid_keys = get_valid_ea_api_keys()
-
-    # If no keys are configured, allow unauthenticated access (e.g. CI/local dev)
-    if not valid_keys:
-        return api_key or "unauthenticated"
-
     if not api_key:
         logger.warning("EA API request without API key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API key. Please provide X-API-Key header.",
             headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+    valid_keys = get_valid_ea_api_keys()
+
+    # Check if any valid keys are configured
+    if not valid_keys:
+        logger.error(
+            "No EA API keys configured. Set EA_API_KEY or EA_API_KEYS in environment."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error. Contact administrator.",
         )
 
     # Validate the provided key
@@ -102,8 +108,8 @@ async def validate_ea_api_key_optional(
 
     valid_keys = get_valid_ea_api_keys()
 
+    # If no keys are configured, unauthenticated access is allowed for optional auth
     if not valid_keys:
-        # If no keys configured, allow unauthenticated access
         return None
 
     if api_key not in valid_keys:

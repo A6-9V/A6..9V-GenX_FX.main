@@ -6,7 +6,7 @@ Provides endpoints for EA registration, signal retrieval, heartbeat, and trade r
 import hashlib
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
