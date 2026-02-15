@@ -10,6 +10,7 @@ import pytest
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
+
     from api.main import app
 
     FASTAPI_AVAILABLE = True
@@ -31,6 +32,7 @@ TEST_API_KEY = "test_api_key_12345"
 def setup_teardown():
     """Setup test environment and clear global state"""
     import os
+
     from api.routers import ea_http
 
     # Set test API key in environment
