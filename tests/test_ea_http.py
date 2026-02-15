@@ -1,7 +1,9 @@
 """
 Tests for EA HTTP communication endpoints
 """
+
 import json
+import os
 from datetime import datetime
 
 import pytest
@@ -10,12 +12,19 @@ import pytest
 try:
     from fastapi.testclient import TestClient
     from api.main import app
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
 
+# Set a test API key for all tests in this module
+TEST_API_KEY = "test_ea_api_key_standard"
+os.environ["EA_API_KEY"] = TEST_API_KEY
+
 if FASTAPI_AVAILABLE:
     client = TestClient(app)
+    # Configure client to always include the API key
+    client.headers.update({"X-API-Key": TEST_API_KEY})
 else:
     client = None
 
@@ -51,11 +60,11 @@ def test_ea_info_registration():
             "broker": "Test Broker",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/ea_info", json=ea_data)
     assert response.status_code == 200
     data = response.json()
@@ -74,11 +83,11 @@ def test_heartbeat():
             "pending_orders": 0,
             "last_signal": "2024-01-01T12:00:00",
             "account": 12345,
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/heartbeat", json=heartbeat_data)
     assert response.status_code == 200
     data = response.json()
@@ -99,11 +108,11 @@ def test_account_status():
             "profit": 150.00,
             "open_positions": 2,
             "account": 12345,
-            "magic_number": 12345
+            "magic_number": 12345,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/account_status", json=status_data)
     assert response.status_code == 200
     data = response.json()
@@ -122,11 +131,11 @@ def test_trade_result_success():
             "error_code": 0,
             "error_message": "",
             "execution_price": 1.1000,
-            "slippage": 0.0002
+            "slippage": 0.0002,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/trade_result", json=result_data)
     assert response.status_code == 200
     data = response.json()
@@ -144,11 +153,11 @@ def test_trade_result_failure():
             "error_code": 134,
             "error_message": "Not enough money",
             "execution_price": 0.0,
-            "slippage": 0.0
+            "slippage": 0.0,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/trade_result", json=result_data)
     assert response.status_code == 200
     data = response.json()
@@ -163,15 +172,15 @@ def test_send_signal():
         "action": "BUY",
         "volume": 0.1,
         "stop_loss": 1.0950,
-        "take_profit": 1.1050
+        "take_profit": 1.1050,
     }
-    
+
     response = client.post("/send_signal", json=signal_data)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
     assert data["signal_id"] == "SIG_TEST_003"
-    
+
     # Verify signal is now available
     response = client.get("/get_signal")
     assert response.status_code == 200
@@ -211,10 +220,8 @@ def test_trade_results_limit():
 
 def test_invalid_message_format():
     """Test handling of invalid message format"""
-    invalid_data = {
-        "invalid_field": "value"
-    }
-    
+    invalid_data = {"invalid_field": "value"}
+
     response = client.post("/ea_info", json=invalid_data)
     assert response.status_code == 422  # Validation error
 
@@ -223,13 +230,18 @@ def test_signal_queue_order():
     """Test that signals are retrieved in FIFO order"""
     # Send multiple signals
     signals = [
-        {"signal_id": f"SIG_QUEUE_{i}", "instrument": "EURUSD", "action": "BUY", "volume": 0.1}
+        {
+            "signal_id": f"SIG_QUEUE_{i}",
+            "instrument": "EURUSD",
+            "action": "BUY",
+            "volume": 0.1,
+        }
         for i in range(3)
     ]
-    
+
     for signal in signals:
         client.post("/send_signal", json=signal)
-    
+
     # Retrieve signals and verify order
     retrieved = []
     for _ in range(3):
@@ -238,7 +250,7 @@ def test_signal_queue_order():
             data = response.json()
             if data.get("type") == "SIGNAL":
                 retrieved.append(data["data"]["signal_id"])
-    
+
     # Verify FIFO order
     expected = [s["signal_id"] for s in signals]
     assert retrieved == expected
@@ -247,7 +259,7 @@ def test_signal_queue_order():
 def test_ea_identification_consistency():
     """Test that EA identification is consistent across endpoints"""
     ea_id = "12345_67890"
-    
+
     # Register EA
     ea_info = {
         "type": "EA_INFO",
@@ -258,14 +270,14 @@ def test_ea_identification_consistency():
             "broker": "Test",
             "symbol": "EURUSD",
             "timeframe": "H1",
-            "magic_number": 67890
+            "magic_number": 67890,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/ea_info", json=ea_info)
     assert response.json()["ea_id"] == ea_id
-    
+
     # Send heartbeat
     heartbeat = {
         "type": "HEARTBEAT",
@@ -275,14 +287,14 @@ def test_ea_identification_consistency():
             "pending_orders": 0,
             "last_signal": "",
             "account": 12345,
-            "magic_number": 67890
+            "magic_number": 67890,
         },
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
+
     response = client.post("/heartbeat", json=heartbeat)
     assert response.json()["ea_id"] == ea_id
-    
+
     # Check EA status
     response = client.get("/ea_status")
     data = response.json()
