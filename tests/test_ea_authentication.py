@@ -13,8 +13,9 @@ import pytest
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app
+
     from api.config import settings
+    from api.main import app
 
     FASTAPI_AVAILABLE = True
 except ImportError:
