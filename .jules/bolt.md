@@ -107,3 +107,9 @@
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
 
 **Action:** I modified `api/main.py` to slice the incoming `historical_data` list to the last 1000 items BEFORE calling the DataFrame constructor. This ensures that the CPU-intensive DataFrame creation only processes the data actually needed for inference, drastically reducing latency and memory usage for large payloads.
+
+## 2026-02-14 - TA-Lib Input Type and Indexing Overhead
+
+**Learning:** I discovered that passing Pandas Series to TA-Lib functions triggers significant internal overhead for index alignment and validation. By passing raw NumPy arrays (`.values`) instead, I achieved a ~8.5x speedup for indicators like EMA and ~2.3x for Stochastic. Additionally, replacing Pandas `.iloc` with direct NumPy array indexing (e.g., `[-1]`) further reduces Python-level overhead in high-frequency service paths.
+
+**Action:** Always extract `.values` from DataFrames/Series before multiple TA-Lib calls in a service or loop. Use direct NumPy array indexing for hot paths where single latest values are required for signal generation.
