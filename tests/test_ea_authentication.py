@@ -6,15 +6,16 @@ Tests the new authentication system for EA HTTP endpoints.
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
 # Skip tests if FastAPI is not available
 try:
     from fastapi.testclient import TestClient
-    from api.main import app
+
     from api.config import settings
+    from api.main import app
 
     FASTAPI_AVAILABLE = True
 except ImportError:
@@ -105,7 +106,7 @@ class TestAuthenticationRequired:
                 "timeframe": "H1",
                 "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/ea_info", json=ea_data)
         assert response.status_code == 401
@@ -122,7 +123,7 @@ class TestAuthenticationRequired:
                 "account": 12345,
                 "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat_data)
         assert response.status_code == 401
@@ -142,7 +143,7 @@ class TestAuthenticationRequired:
                 "account": 12345,
                 "magic_number": 12345,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/account_status", json=status_data)
         assert response.status_code == 401
@@ -160,7 +161,7 @@ class TestAuthenticationRequired:
                 "execution_price": 1.1000,
                 "slippage": 0.0001,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/trade_result", json=result_data)
         assert response.status_code == 401
@@ -211,7 +212,7 @@ class TestAuthenticationSuccess:
                 "timeframe": "M15",
                 "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/ea_info", json=ea_data, headers=auth_headers)
         assert response.status_code == 200
@@ -231,7 +232,7 @@ class TestAuthenticationSuccess:
                 "account": 99999,
                 "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat_data, headers=auth_headers)
         assert response.status_code == 200
@@ -253,7 +254,7 @@ class TestAuthenticationSuccess:
                 "account": 99999,
                 "magic_number": 99999,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post(
             "/account_status", json=status_data, headers=auth_headers
@@ -275,7 +276,7 @@ class TestAuthenticationSuccess:
                 "execution_price": 1.0950,
                 "slippage": 0.0002,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/trade_result", json=result_data, headers=auth_headers)
         assert response.status_code == 200
@@ -381,7 +382,7 @@ class TestEndToEndWorkflow:
                 "timeframe": "H4",
                 "magic_number": 77777,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/ea_info", json=ea_info, headers=auth_headers)
         assert response.status_code == 200
@@ -398,7 +399,7 @@ class TestEndToEndWorkflow:
                 "account": 77777,
                 "magic_number": 77777,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/heartbeat", json=heartbeat, headers=auth_headers)
         assert response.status_code == 200
@@ -434,7 +435,7 @@ class TestEndToEndWorkflow:
                 "execution_price": 145.50,
                 "slippage": 0.0005,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         response = client.post("/trade_result", json=trade_result, headers=auth_headers)
         assert response.status_code == 200

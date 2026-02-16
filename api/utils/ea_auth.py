@@ -19,9 +19,12 @@ logger = logging.getLogger(__name__)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
+import os
+
+
 def get_valid_ea_api_keys() -> set:
     """
-    Get the set of valid EA API keys from configuration.
+    Get the set of valid EA API keys from configuration and environment.
 
     Returns:
         set: Set of valid API keys
@@ -29,13 +32,22 @@ def get_valid_ea_api_keys() -> set:
     valid_keys = set()
     settings = get_settings()
 
-    # Add single EA_API_KEY if configured
+    # Add from settings (which picks up from environment)
     if settings.EA_API_KEY:
         valid_keys.add(settings.EA_API_KEY)
 
-    # Add multiple keys from EA_API_KEYS (comma-separated)
     if settings.EA_API_KEYS:
         keys = [k.strip() for k in settings.EA_API_KEYS.split(",") if k.strip()]
+        valid_keys.update(keys)
+
+    # Direct environment fallback for extra robustness in tests
+    env_key = os.getenv("EA_API_KEY")
+    if env_key:
+        valid_keys.add(env_key)
+
+    env_keys = os.getenv("EA_API_KEYS")
+    if env_keys:
+        keys = [k.strip() for k in env_keys.split(",") if k.strip()]
         valid_keys.update(keys)
 
     return valid_keys
