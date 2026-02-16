@@ -45,21 +45,17 @@ def get_valid_ea_api_keys() -> set:
     """
     Get the set of valid EA API keys from configuration.
     Uses LRU cache to avoid redundant parsing and set creation.
-    In testing mode, also checks os.environ for reactivity.
+    Always checks os.environ for reactivity with test-injected keys.
 
     Returns:
         set: Set of valid API keys
     """
     # ⚡ Bolt Optimization: Use LRU cache for speed and dynamic environ check.
-    # We check os.environ dynamically instead of at module-level to ensure
-    # that test fixtures can inject keys even if the module was already imported.
+    # We check os.environ dynamically to ensure that test fixtures can inject
+    # keys even if the settings object was already initialized.
     # Benchmarking shows os.environ.get() is extremely fast (~1.5µs).
-    if os.environ.get("TESTING") == "1":
-        key_str = os.environ.get("EA_API_KEY") or settings.EA_API_KEY
-        keys_str = os.environ.get("EA_API_KEYS") or settings.EA_API_KEYS
-    else:
-        key_str = settings.EA_API_KEY
-        keys_str = settings.EA_API_KEYS
+    key_str = os.environ.get("EA_API_KEY") or settings.EA_API_KEY
+    keys_str = os.environ.get("EA_API_KEYS") or settings.EA_API_KEYS
 
     # We return a set() to the caller to maintain the original return type.
     # Membership check on a set is O(1).
