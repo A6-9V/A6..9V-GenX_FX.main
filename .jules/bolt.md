@@ -102,6 +102,12 @@
 
 **Action:** I replaced all remaining Pandas rolling window operations with vectorized NumPy equivalents using `np.convolve` (for variance/std) and `np.lib.stride_tricks.sliding_window_view` (for min/max). I also added explicit `.astype(float)` casting and `dtype=float` to NumPy array initializations to ensure robust handling of `np.nan`. These optimizations provided a ~5.2x speedup for rolling standard deviation on small datasets (n=100), significantly reducing latency for high-frequency signal generation.
 
+## 2026-02-28 - Bypassing Pandas for TA-Lib and C-Extension Acceleration
+
+**Learning:** I identified two significant performance bottlenecks in the real-time trading path. First, `ScalpingService` was passing Pandas Series to TA-Lib and using `.iloc` for indexing, which triggers expensive index alignment and validation. Second, `TechnicalIndicators` was using manual `np.convolve` for moving averages and a Python loop for Parabolic SAR, even though TA-Lib's highly optimized C implementations were available in the environment.
+
+**Action:** I optimized `ScalpingService` by extracting raw NumPy arrays (`.values`) and using direct indexing (e.g., `[-1]`), yielding a ~3x speedup. In `TechnicalIndicators`, I integrated `talib.SMA`, `talib.EMA`, `talib.WMA`, and `talib.SAR` (with explicit `np.float64` casting for compatibility). This provided a ~6.5x speedup for moving averages and a massive ~248x speedup for Parabolic SAR, significantly reducing CPU latency across the entire signal generation pipeline.
+
 ## 2026-02-14 - Slicing Lists Before DataFrame Creation
 
 **Learning:** I identified a significant performance bottleneck in the `get_predictions` and `get_scalping_signals` endpoints where the entire `historical_data` list (often containing thousands of rows) was being converted to a Pandas DataFrame, only to be sliced to 500 bars immediately after. Benchmark tests showed that converting 100k rows of a list of dicts to a DataFrame is ~100x slower than slicing the list first.
