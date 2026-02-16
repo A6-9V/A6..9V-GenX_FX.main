@@ -469,7 +469,10 @@ class TechnicalIndicators:
                 # Benchmarking shows a ~248x speedup over the manual loop.
                 if has_talib:
                     df["sar"] = talib.SAR(
-                        df["high"].values, df["low"].values, acceleration=0.02, maximum=0.2
+                        df["high"].values,
+                        df["low"].values,
+                        acceleration=0.02,
+                        maximum=0.2,
                     )
                 else:
                     df["sar"] = self._calculate_parabolic_sar(df)

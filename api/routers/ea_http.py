@@ -24,6 +24,17 @@ pending_signals: List[Dict[str, Any]] = []
 trade_results: List[Dict[str, Any]] = []
 
 
+def clear_ea_state():
+    """
+    Clears all in-memory EA connections, pending signals, and trade results.
+    Primarily used for resetting state between unit tests.
+    """
+    ea_connections.clear()
+    pending_signals.clear()
+    trade_results.clear()
+    logger.info("In-memory EA state cleared")
+
+
 def get_or_create_ea_id(data: Dict[str, Any]) -> str:
     """
     Extract or create EA identifier from message data.
