@@ -52,7 +52,7 @@ def deploy_to_railway():
     # Create railway.json
     railway_config = {
         "build": {"builder": "NIXPACKS"},
-        "deploy": {"startCommand": "uvicorn api.main:app --host 0.0.0.0 --port $PORT"},
+        "deploy": {"startCommand": "npm run start:prod"},
     }
 
     with open("railway.json", "w") as f:
