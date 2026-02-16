@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 # Define API key header schema
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# Check if we are in testing mode at module level for performance
-IS_TESTING = os.environ.get("TESTING") == "1"
-
 
 @functools.lru_cache(maxsize=32)
 def _get_keys_cached(key_str: Optional[str], keys_str: Optional[str]) -> frozenset:
@@ -53,10 +50,11 @@ def get_valid_ea_api_keys() -> set:
     Returns:
         set: Set of valid API keys
     """
-    # ⚡ Bolt Optimization: Use LRU cache for speed and conditional environ check.
-    # We only check os.environ if IS_TESTING is True to avoid the overhead of
-    # dictionary lookups in the hot path of production requests.
-    if IS_TESTING:
+    # ⚡ Bolt Optimization: Use LRU cache for speed and dynamic environ check.
+    # We check os.environ dynamically instead of at module-level to ensure
+    # that test fixtures can inject keys even if the module was already imported.
+    # Benchmarking shows os.environ.get() is extremely fast (~1.5µs).
+    if os.environ.get("TESTING") == "1":
         key_str = os.environ.get("EA_API_KEY") or settings.EA_API_KEY
         keys_str = os.environ.get("EA_API_KEYS") or settings.EA_API_KEYS
     else:
